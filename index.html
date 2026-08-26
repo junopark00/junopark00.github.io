@@ -322,6 +322,7 @@
   .ticket[data-state="idle"] .name, .ticket[data-state="idle"] .meta, .ticket[data-state="idle"] .t-done { display: none; }
   .ticket .t-note { display: none; font-size: 11px; color: rgba(27, 31, 26, .55); margin-top: 4px; }
   .ticket[data-state="done"] .t-note { display: block; }
+  .ticket.real-walk .t-note { display: none; }   /* actual TMAP time shown → no disclaimer needed */
   .ticket[data-state="rolling"] .t-idle, .ticket[data-state="done"] .t-idle { display: none; }
   .ticket[data-state="rolling"] .t-done { pointer-events: none; opacity: .55; }
   .ticket[hidden] { display: none; }
@@ -1302,12 +1303,38 @@ function setReel(names) {
   $("reelStrip").innerHTML = names.map(n => `<div class="reel-item"><span>${esc(n)}</span></div>`).join("");
   $("reelStrip").style.transform = "";
 }
+/* Actual walking time (TMAP via the worker) for the picked place only.
+   On any failure — daily quota exhausted, network error — the straight-line
+   estimate and its disclaimer stay as the fallback. */
+const centerKey = () => state.center ? `${state.center.lat.toFixed(5)},${state.center.lng.toFixed(5)}` : "";
+function realWalkSec(w) { return w.walkSec && w.walkFrom === centerKey() ? w.walkSec : null; }
+function walkTimeLabel(w) {
+  const s = realWalkSec(w);
+  return s ? `걸어서 약 ${Math.max(1, Math.round(s / 60))}분` : travelLabel(w.distance);
+}
+async function fetchWalkTime(w) {
+  if (!SEARCH_PROXY || !state.center || realWalkSec(w)) return;
+  const from = centerKey();
+  try {
+    const u = new URL(SEARCH_PROXY.replace(/\/$/, "").replace(/\/search$/, "") + "/route/pedestrian");
+    u.searchParams.set("startX", state.center.lng); u.searchParams.set("startY", state.center.lat);
+    u.searchParams.set("endX", w.x); u.searchParams.set("endY", w.y);
+    const res = await fetch(u);
+    if (!res.ok) return;
+    const b = await res.json();
+    if (!(b.totalTime > 0)) return;
+    w.walkSec = b.totalTime; w.walkFrom = from;
+    if (state.picked && state.picked.id === w.id) fillTicketMeta(w);
+  } catch {}
+}
 function fillTicketMeta(w) {
-  $("tMeta").innerHTML = `<span>${esc(shortCat(w.category_name))}</span><span>${fmtDist(w.distance)}</span><span>${esc(travelLabel(w.distance))}</span>`;
+  $("tMeta").innerHTML = `<span>${esc(shortCat(w.category_name))}</span><span>${fmtDist(w.distance)}</span><span>${esc(walkTimeLabel(w))}</span>`;
+  $("ticket").classList.toggle("real-walk", !!realWalkSec(w));   // real time → hide the straight-line disclaimer
 }
 function fillTicket(winner) {
   state.picked = winner;
   fillTicketMeta(winner);
+  fetchWalkTime(winner);
   $("tLink").href = winner.place_url; $("tRoute").href = routeUrl(winner);
   // recent + today's history
   state.recent = [winner.id, ...state.recent.filter(id => id !== winner.id)].slice(0, 3);
@@ -1404,7 +1431,7 @@ async function sharePicked() {
   const w = state.picked; if (!w) return;
   const link = w.place_url;
   // No title, and the link only via url — share targets would otherwise print both twice
-  const text = `오늘 점심은 ${w.place_name}!\n${shortCat(w.category_name)} · ${fmtDist(w.distance)} · ${travelLabel(w.distance)}`;
+  const text = `오늘 점심은 ${w.place_name}!\n${shortCat(w.category_name)} · ${fmtDist(w.distance)} · ${walkTimeLabel(w)}`;
   try {
     if (navigator.share) { await navigator.share({ text, url: link }); return; }
     await navigator.clipboard.writeText(`${text}\n${link}`); toast("복사했어요");
