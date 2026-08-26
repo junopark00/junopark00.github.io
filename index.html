@@ -495,9 +495,9 @@
     .sheet { padding-bottom: 0; }
     .brand h1 { margin: 0; }
 
-    .results { padding: 0 14px 24px; }
+    .results { padding: 12px 14px calc(24px + env(safe-area-inset-bottom)); }
     .results.active { display: block; }
-    .results { padding-top: 12px; }
+    .totop { bottom: calc(14px + env(safe-area-inset-bottom)); }
     .ticket { grid-template-columns: minmax(0, 1fr); padding: 16px 18px; gap: 12px; }
     .ticket[data-state="idle"] { padding: 14px 18px 16px; }
     .ticket .t-idle .btn.big { width: 100%; }
@@ -1171,7 +1171,10 @@ const isMobile = () => mobileMQ.matches;
 const sheet = { el: $("sheet"), tab: "settings", snap: "half" };
 function sheetSnaps() {
   const H = window.innerHeight;
-  return { peek: $("sheetBar").offsetHeight + 8, half: Math.round(H * 0.52), full: Math.round(H * 0.9) };
+  // Cap so brand bar + the map's min-height (96px) stay visible — otherwise the sheet bottom gets pushed off-screen
+  const maxH = H - $("brand").offsetHeight - 96;
+  const full = Math.min(Math.round(H * 0.9), maxH);
+  return { peek: $("sheetBar").offsetHeight + 8, half: Math.min(Math.round(H * 0.52), full), full };
 }
 function setSheetHeight(px, animate = true) {
   const sn = sheetSnaps();
