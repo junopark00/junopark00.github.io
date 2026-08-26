@@ -14,6 +14,7 @@
 <meta name="twitter:card" content="summary_large_image" />
 <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-5864541043862729" crossorigin="anonymous"></script>
 <script src="https://t1.kakaocdn.net/kakao_js_sdk/2.7.4/kakao.min.js" crossorigin="anonymous"></script>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
 <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
 <meta name="theme-color" content="#151815" media="(prefers-color-scheme: dark)" />
@@ -163,6 +164,7 @@
   }
   .kakao-btn:hover { filter: brightness(.96); }
   .kakao-btn .ksym { width: 18px; height: 18px; flex: none; }
+  .gbtn-wrap { margin-top: 10px; display: flex; justify-content: center; min-height: 40px; }
   .modal-card .linkbtn { margin-top: 14px; }
 
   /* ---------- Star ratings on cards ---------- */
@@ -723,11 +725,12 @@
   <div class="modal-card">
     <div class="stars-demo" aria-hidden="true">★★★★★</div>
     <h2>가게 별점이 궁금하다면</h2>
-    <p>카카오 로그인하면 다른 사람들이 남긴 별점을 확인하고,<br />직접 별점을 매길 수 있어요.</p>
+    <p>로그인하면 다른 사람들이 남긴 별점을 확인하고,<br />직접 별점을 매길 수 있어요.</p>
     <button type="button" class="kakao-btn" id="kakaoLoginBtn">
       <svg viewBox="0 0 24 24" class="ksym" aria-hidden="true"><path fill="#191919" d="M12 3C6.48 3 2 6.54 2 10.9c0 2.8 1.86 5.25 4.64 6.65-.2.75-.75 2.8-.86 3.24-.13.54.2.53.42.39.17-.11 2.72-1.85 3.83-2.6.63.09 1.29.14 1.97.14 5.52 0 10-3.54 10-7.9S17.52 3 12 3z"/></svg>
       카카오 로그인
     </button>
+    <div class="gbtn-wrap" id="googleBtn"></div>
     <button type="button" class="linkbtn" id="skipLoginBtn">그냥 볼래요</button>
   </div>
 </div>
@@ -744,6 +747,7 @@
                     domain restriction. Empty → the app searches via the JS SDK.
    ============================================================ */
 const KAKAO_JS_KEY   = "915c35e47a9ec22fe51b99e9be2e3532";
+const GOOGLE_CLIENT_ID = "461639910588-72hlpadstkq8idus5jvi256113pqok29.apps.googleusercontent.com";
 const SEARCH_PROXY   = "https://jummechu-api.td-junopark.workers.dev/search";
 const KAKAO_REST_KEY = "";
 
@@ -1657,8 +1661,24 @@ const AUTH_KEY = "jmc-auth", NUDGE_KEY = "jmc-login-nudge";
 function authData() { return loadJSON(AUTH_KEY, null); }
 function isLoggedIn() { const a = authData(); return !!(a && a.access && Date.now() < a.exp); }
 function saveAuth(t) {
-  saveJSON(AUTH_KEY, { access: t.access_token, refresh: t.refresh_token || (authData() || {}).refresh,
+  saveJSON(AUTH_KEY, { provider: "kakao", access: t.access_token, refresh: t.refresh_token || (authData() || {}).refresh,
     exp: Date.now() + Math.max(60, (t.expires_in || 21600) - 60) * 1000 });
+}
+function saveGoogleAuth(cred) {   // cred is a Google ID token (JWT, ~1h lifetime, no refresh)
+  let exp = Date.now() + 3300 * 1000;
+  try { exp = JSON.parse(atob(cred.split(".")[1].replace(/-/g, "+").replace(/_/g, "/"))).exp * 1000 - 60000; } catch {}
+  saveJSON(AUTH_KEY, { provider: "google", access: cred, exp });
+}
+function initGoogleBtn(tries = 0) {
+  if (!window.google || !google.accounts) { if (tries < 40) setTimeout(() => initGoogleBtn(tries + 1), 250); return; }
+  google.accounts.id.initialize({ client_id: GOOGLE_CLIENT_ID, callback: res => {
+    if (!res || !res.credential) return;
+    saveGoogleAuth(res.credential);
+    $("loginModal").hidden = true;
+    toast("Google 로그인 완료!");
+    applyFilter(); fetchRatings();
+  }});
+  google.accounts.id.renderButton($("googleBtn"), { theme: "outline", size: "large", width: 280, text: "signin_with", locale: "ko" });
 }
 function kakaoLogin() {
   if (!window.Kakao) { setStatus("카카오 로그인 SDK를 불러오지 못했어요.", true); return; }
@@ -1670,7 +1690,7 @@ function kakaoLogin() {
 }
 async function refreshAuth() {
   const a = authData();
-  if (!a || !a.refresh) return false;
+  if (!a || a.provider === "google" || !a.refresh) return false;   // Google ID tokens can't refresh — re-login instead
   try {
     const r = await fetch(WORKER_BASE + "/auth/token", { method: "POST",
       headers: { "Content-Type": "application/json" }, body: JSON.stringify({ refresh_token: a.refresh }) });
@@ -1768,6 +1788,7 @@ if ("serviceWorker" in navigator && location.protocol !== "file:") {
 loadPersisted();
 renderTokens(); updateRadiusHint(); renderHistory();
 if (window.Kakao && !Kakao.isInitialized()) Kakao.init(KAKAO_JS_KEY);
+initGoogleBtn();
 handleAuthRedirect().then(maybeNudgeLogin);
 if (isMobile()) setSheetTab("settings", { expand: false });
 loadSdk(KAKAO_JS_KEY);

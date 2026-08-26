@@ -69,6 +69,7 @@ export default {
         const form = b.refresh_token
           ? { grant_type: "refresh_token", client_id: env.KAKAO_REST_KEY, refresh_token: b.refresh_token }
           : { grant_type: "authorization_code", client_id: env.KAKAO_REST_KEY, redirect_uri: b.redirect_uri || "", code: b.code || "" };
+        if (env.KAKAO_CLIENT_SECRET) form.client_secret = env.KAKAO_CLIENT_SECRET;   // required if enabled in the Kakao console's 보안 tab
         const r = await fetch("https://kauth.kakao.com/oauth/token", {
           method: "POST",
           headers: { "Content-Type": "application/x-www-form-urlencoded;charset=utf-8" },
@@ -79,8 +80,10 @@ export default {
         return json({ access_token: body.access_token, refresh_token: body.refresh_token, expires_in: body.expires_in });
       }
 
-      // --- Star ratings (login required). One rating per Kakao user per place, updatable. ---
-      // Verify the bearer token against Kakao and cache the user id briefly to spare kapi calls.
+      // --- Star ratings (login required). One rating per user per place, updatable. ---
+      // Bearer token is either a Kakao access token (opaque) or a Google ID token (JWT).
+      // User ids are namespaced "k:<kakao id>" / "g:<google sub>" so the providers can't collide.
+      const GOOGLE_CLIENT_ID = "461639910588-72hlpadstkq8idus5jvi256113pqok29.apps.googleusercontent.com";
       const verifyUser = async () => {
         const auth = req.headers.get("Authorization") || "";
         if (!auth.startsWith("Bearer ") || auth.length < 20) return null;
@@ -88,9 +91,15 @@ export default {
         const key = "tok:" + [...new Uint8Array(digest)].map(x => x.toString(16).padStart(2, "0")).join("");
         const cached = await env.RATINGS.get(key);
         if (cached) return cached;
-        const r = await fetch("https://kapi.kakao.com/v2/user/me", { headers: { Authorization: auth } });
-        if (!r.ok) return null;
-        const uid = String((await r.json()).id || "");
+        const raw = auth.slice(7);
+        let uid = null;
+        if (raw.split(".").length === 3) {   // JWT → Google ID token
+          const r = await fetch("https://oauth2.googleapis.com/tokeninfo?id_token=" + encodeURIComponent(raw));
+          if (r.ok) { const b = await r.json(); if (b.aud === GOOGLE_CLIENT_ID && b.sub) uid = "g:" + b.sub; }
+        } else {                             // opaque → Kakao access token
+          const r = await fetch("https://kapi.kakao.com/v2/user/me", { headers: { Authorization: auth } });
+          if (r.ok) { const id = (await r.json()).id; if (id) uid = "k:" + id; }
+        }
         if (!uid) return null;
         await env.RATINGS.put(key, uid, { expirationTtl: 600 });
         return uid;
