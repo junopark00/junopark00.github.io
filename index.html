@@ -1298,7 +1298,7 @@ async function runNaverQueue() {
     if (detail.naverIds[p.id] || naverJobs.inflight[p.id]) continue;
     const info = await resolveNaver(p);
     if (info.reason === "captcha") { console.warn("[점메추] naver prefetch paused (captcha)"); break; }   // stop hammering; on-demand lookups still work
-    await sleep(400);
+    await sleep(1500 + Math.random() * 700);   // spaced out like a person browsing
   }
   naverJobs.running = false;
 }
