@@ -1270,11 +1270,14 @@ async function loadNaver(p, req) {
   let info = { id: null };
   try {
     const ctrl = new AbortController(); const t = setTimeout(() => ctrl.abort(), 6000);
-    const r = await fetch(NAVER_RESOLVE + encodeURIComponent(naverQuery(p)), { signal: ctrl.signal });
+    const r = await fetch(NAVER_RESOLVE + encodeURIComponent(naverQuery(p)) + `&x=${p.x}&y=${p.y}`, { signal: ctrl.signal });
     clearTimeout(t);
     if (r.ok) info = await r.json();
   } catch (e) { console.warn("[점메추] naver lookup", e); }
   detail.naverIds[p.id] = info;
+  if (info.hours && (info.hours.status || info.hours.description) && detail.place?.id === p.id) {
+    $("dCat").textContent = `${detailCat(p)} · ${[info.hours.status, info.hours.description].filter(Boolean).join(" ")}`;
+  }
   if (state.picked?.id === p.id) $("tLink").href = naverMapUrl(p);
   if (detail.place?.id === p.id) $("dOpen").href = naverMapUrl(p);
   if (req !== detail.req || detail.place?.id !== p.id || detail.tab !== "naver") return;   // user moved on
