@@ -1056,16 +1056,15 @@ async function permissionState() {
 }
 async function autoLocate() {
   const saved = loadLoc();
-  if (saved) setCenter(saved.lat, saved.lng, "마지막 위치");
+  if (saved) setCenter(saved.lat, saved.lng, "마지막 위치");   // instant placeholder while GPS resolves
   const perm = await permissionState();
-  if (perm === "granted") { locate(); return; }
   if (perm === "denied") {
     setStatus(IN_APP
       ? "인앱 브라우저에서는 위치 권한이 제한돼요. 위치 검색을 이용하거나 브라우저 메뉴에서 '외부 브라우저로 열기'를 눌러주세요."
       : "위치 권한이 차단돼 있어요. 주소창 자물쇠에서 허용하거나 지도를 클릭하세요.", true);
     return;
   }
-  setStatus(saved ? "마지막 위치를 불러왔어요. 「현재 위치 잡기」로 새로 잡을 수 있어요." : "「현재 위치 잡기」를 누르거나 지도를 클릭해 기준점을 정하세요.");
+  locate();   // granted or not-yet-asked → grab the current position right away
 }
 function locate() {
   if (!navigator.geolocation) { setStatus("이 브라우저는 위치를 지원하지 않아요. 지도를 클릭해 기준점을 정하세요.", true); return; }
@@ -1774,7 +1773,7 @@ function openExternal() {
 let gisInited = false;
 function initGoogleBtn(tries = 0) {
   if (!window.google || !google.accounts) { if (tries < 40) setTimeout(() => initGoogleBtn(tries + 1), 250); return; }
-  google.accounts.id.initialize({ client_id: GOOGLE_CLIENT_ID, callback: res => {
+  google.accounts.id.initialize({ client_id: GOOGLE_CLIENT_ID, auto_select: true, callback: res => {
     if (!res || !res.credential) return;
     saveGoogleAuth(res.credential);
     $("loginModal").hidden = true;
@@ -1783,6 +1782,9 @@ function initGoogleBtn(tries = 0) {
   }});
   gisInited = true;
   renderGoogleBtn();   // in case the modal is already open
+  // Google ID tokens last ~1h and can't refresh — One Tap silently re-issues one for returning users
+  const a = authData();
+  if (a && a.provider === "google" && !isLoggedIn() && !IN_APP) google.accounts.id.prompt();
 }
 function renderGoogleBtn() {
   if ($("loginModal").hidden) return;
@@ -1865,7 +1867,9 @@ document.addEventListener("keydown", e => {
   if (!$("loginModal").hidden) $("skipLoginBtn").click();
 });
 function maybeNudgeLogin() {
-  if (!isLoggedIn() && loadJSON(NUDGE_KEY, "") !== todayStr()) showLoginModal();
+  const a = authData();
+  if (isLoggedIn() || a) return;   // a stored session means a silent re-login is underway — don't flash the modal
+  if (loadJSON(NUDGE_KEY, "") !== todayStr()) showLoginModal();
 }
 
 async function fetchRatings() {
@@ -2005,6 +2009,13 @@ renderTokens(); updateRadiusHint(); renderHistory();
 if (window.Kakao && !Kakao.isInitialized()) Kakao.init(KAKAO_JS_KEY);
 initGoogleBtn();
 { const a = authData(); if (a && a.provider === "google" && a.access) saveGoogleAuth(a.access); }   // re-derive names saved with the old broken decoder
+// Kakao sessions survive the ~6h access-token expiry: refresh silently on boot
+(async () => {
+  const a = authData();
+  if (a && a.provider === "kakao" && a.refresh && !isLoggedIn()) {
+    if (await refreshAuth()) { updateAuthLine(); applyFilter(); fetchRatings(); }
+  }
+})();
 updateAuthLine();
 handleAuthRedirect().then(maybeNudgeLogin);
 if (isMobile()) setSheetTab("settings", { expand: false });
