@@ -225,6 +225,25 @@
   .linkbtn { border: 0; background: none; padding: 0; font-size: 12px; color: var(--ink-2); text-decoration: underline; text-underline-offset: 3px; font-weight: 500; letter-spacing: 0; text-transform: none; }
   .linkbtn:hover { color: var(--ink); }
 
+  /* Location search box with a result dropdown */
+  .loc-search { position: relative; display: flex; align-items: center; gap: 8px; }
+  .loc-search > .ic { color: var(--ink-2); margin-left: 4px; }
+  .loc-search input { flex: 1; min-width: 0; padding: 7px 10px; font-size: 13px; border-radius: 3px; }
+  .loc-results {
+    position: absolute; top: calc(100% + 4px); left: 0; right: 0; z-index: 30;
+    background: var(--paper); border: 1px solid var(--line); border-radius: var(--radius);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, .2); max-height: 240px; overflow-y: auto;
+  }
+  .loc-results button {
+    display: block; width: 100%; text-align: left; padding: 9px 12px; border: 0; background: none; cursor: pointer;
+    font: inherit; border-bottom: 1px solid var(--line); color: var(--ink);
+  }
+  .loc-results button:last-child { border-bottom: 0; }
+  .loc-results button:hover, .loc-results button:focus { background: var(--paper-2); }
+  .loc-results button b { display: block; font-size: 13px; font-weight: 700; }
+  .loc-results button span { display: block; font-size: 11.5px; color: var(--ink-2); margin-top: 2px; }
+  .loc-results .loc-empty { padding: 12px; font-size: 12.5px; color: var(--ink-2); text-align: center; }
+
   .chips { display: flex; flex-wrap: wrap; gap: 6px; }
   .chip {
     padding: 5px 10px;
@@ -565,6 +584,11 @@
      <div class="settings-body">
       <div class="field">
         <div class="label"><span><svg class="ic" aria-hidden="true"><use href="#i-map-pin"/></svg>내 위치 <small id="locHint"></small></span><button class="btn ghost" id="geo" style="padding:4px 10px;font-size:12px"><svg class="ic" aria-hidden="true"><use href="#i-locate"/></svg><span id="geoLabel">현재 위치 잡기</span></button></div>
+        <div class="loc-search">
+          <svg class="ic" aria-hidden="true"><use href="#i-search"/></svg>
+          <input type="text" id="locInput" placeholder="주소·장소 검색 후 Enter (예: 강남역)" aria-label="위치 검색" autocomplete="off" />
+          <div class="loc-results" id="locResults" hidden></div>
+        </div>
       </div>
 
       <div class="field">
@@ -906,7 +930,59 @@ function locate() {
 }
 $("geo").onclick = () => locate();
 
-function setCenter(lat, lng, label) {
+/* ---------- Location search (keyword + address, both via the Kakao JS SDK) ---------- */
+function searchLocation(q) {
+  return new Promise(resolve => {
+    const out = { places: [], addrs: [] };
+    let pending = 2;
+    const done = () => { if (--pending === 0) resolve([...out.places, ...out.addrs]); };
+    state.ps.keywordSearch(q, (data, status) => {
+      if (status === kakao.maps.services.Status.OK)
+        out.places = data.slice(0, 5).map(d => ({ name: d.place_name, addr: d.road_address_name || d.address_name || "", lat: +d.y, lng: +d.x }));
+      done();
+    }, { size: 5 });
+    state.geocoder.addressSearch(q, (res, status) => {
+      if (status === kakao.maps.services.Status.OK)
+        out.addrs = res.slice(0, 3).map(d => ({
+          name: (d.road_address && d.road_address.building_name) || d.address_name, addr: d.address_name, lat: +d.y, lng: +d.x }));
+      done();
+    });
+  });
+}
+async function runLocSearch() {
+  const q = $("locInput").value.trim();
+  if (!q) return;
+  if (!state.ps || !state.geocoder) { setStatus("지도가 아직 준비되지 않았어요.", true); return; }
+  const items = await searchLocation(q);
+  const seen = new Set();
+  const uniq = items.filter(i => i.lat && i.lng && !seen.has(i.name + "|" + i.addr) && seen.add(i.name + "|" + i.addr)).slice(0, 6);
+  const box = $("locResults");
+  box.innerHTML = "";
+  if (!uniq.length) box.innerHTML = `<div class="loc-empty">검색 결과가 없어요</div>`;
+  else uniq.forEach(it => {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.innerHTML = `<b>${esc(it.name)}</b>${it.addr && it.addr !== it.name ? `<span>${esc(it.addr)}</span>` : ""}`;
+    // mousedown fires before the input's blur, so the click isn't lost when the dropdown closes
+    b.onmousedown = e => { e.preventDefault(); pickLocation(it); };
+    box.appendChild(b);
+  });
+  box.hidden = false;
+}
+function pickLocation(it) {
+  $("locResults").hidden = true;
+  $("locInput").value = it.name;
+  setCenter(it.lat, it.lng, it.name, false);
+  saveLoc(it.lat, it.lng);
+  setStatus("");
+}
+$("locInput").addEventListener("keydown", e => {
+  if (e.key === "Enter") { e.preventDefault(); runLocSearch(); }
+  if (e.key === "Escape") $("locResults").hidden = true;
+});
+$("locInput").addEventListener("blur", () => setTimeout(() => { $("locResults").hidden = true; }, 150));
+
+function setCenter(lat, lng, label, resolveLabel = true) {
   state.center = { lat, lng };
   const ll = new kakao.maps.LatLng(lat, lng);
   state.map.setCenter(ll);
@@ -920,7 +996,8 @@ function setCenter(lat, lng, label) {
     });
   } else state.centerMarker.setPosition(ll);
   $("locHint").textContent = label;
-  resolvePlaceLabel(lat, lng);
+  if (resolveLabel) resolvePlaceLabel(lat, lng);
+  else locSeq++;   // invalidate any in-flight reverse geocode so it can't overwrite the explicit label
   drawCircle(); markDirty();
   if (state.picked) $("tRoute").href = routeUrl(state.picked);
 }
