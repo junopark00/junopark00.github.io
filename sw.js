@@ -15,7 +15,8 @@ self.addEventListener("fetch", e => {
   const url = new URL(e.request.url);
   if (e.request.method !== "GET" || url.origin !== location.origin) return;   // only our own files
   e.respondWith(
-    fetch(e.request)
+    // cache: "no-cache" revalidates with the server so deploys show up immediately (Pages sends max-age=600)
+    fetch(e.request, { cache: "no-cache" })
       .then(res => { const copy = res.clone(); caches.open(VERSION).then(c => c.put(e.request, copy)); return res; })
       .catch(() => caches.match(e.request).then(hit => hit || (e.request.mode === "navigate" ? caches.match("./index.html") : undefined)))
   );

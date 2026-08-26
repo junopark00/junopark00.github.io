@@ -949,11 +949,19 @@ async function restSearch(path, params) {
   if (!res.ok) throw new Error(`HTTP ${res.status} ${body.message || body.msg || body.errorType || ""}`.trim());
   return body;
 }
+// Live tally on the search button while grid sub-searches are collecting
+let searchTally = -1;   // ≥0 while a search is in flight
+function bumpTally(n) {
+  if (searchTally < 0 || !n) return;
+  searchTally += n;
+  $("searchLabel").textContent = `찾는 중… ${searchTally}곳`;
+}
 async function restPaged(path, params) {
   const acc = [];
   for (let page = 1; page <= MAX_PAGES; page++) {
     const body = await restSearch(path, { ...params, page });
     acc.push(...(body.documents || []));
+    bumpTally((body.documents || []).length);
     if (!body.meta || body.meta.is_end) break;
   }
   return acc;
@@ -965,6 +973,7 @@ function sdkPaged(label, opts, fn) {
       console.log(`[점메추] SDK "${label}" p${page} → ${status}`, data);
       if (status === kakao.maps.services.Status.OK) {
         acc.push(...data);
+        bumpTally(data.length);
         if (pagination && pagination.hasNextPage && page < MAX_PAGES) { page++; pagination.nextPage(); return; }
         resolve(acc);
       } else if (status === kakao.maps.services.Status.ZERO_RESULT) resolve(acc);
@@ -1033,6 +1042,7 @@ $("search").onclick = async () => {
   const includeAll = want.length === 0 || GENRES.every(g => state.genres.has(g));
   const keywords = includeAll ? want.filter(g => !GENRES.includes(g)) : want;
   setSearchBusy(true, `반경 ${fmtDist(r)} 찾는 중…`);
+  searchTally = 0;
   try {
     const raw = await fetchPlaces(keywords, r, includeAll);
     const seen = new Set();
@@ -1047,7 +1057,7 @@ $("search").onclick = async () => {
   } catch (e) {
     console.error(e);
     setStatus("검색 실패: " + e.message, true);
-  } finally { setSearchBusy(false); }
+  } finally { searchTally = -1; setSearchBusy(false); }
 };
 
 function widenAndSearch() {
@@ -1307,7 +1317,25 @@ function setReel(names) {
    On any failure — daily quota exhausted, network error — the straight-line
    estimate and its disclaimer stay as the fallback. */
 const centerKey = () => state.center ? `${state.center.lat.toFixed(5)},${state.center.lng.toFixed(5)}` : "";
-function realWalkSec(w) { return w.walkSec && w.walkFrom === centerKey() ? w.walkSec : null; }
+// Fetched times are also kept in localStorage for the day, so a reload or a
+// history re-pick reuses them without spending TMAP quota.
+const WALK_KEY = "jmc-walk";
+function walkCacheGet(w) {
+  const e = loadJSON(WALK_KEY, {})[w.id + "|" + centerKey()];
+  return e && e.d === todayStr() ? e.s : null;
+}
+function walkCacheSet(w, sec) {
+  const m = loadJSON(WALK_KEY, {});
+  for (const k in m) if (m[k].d !== todayStr()) delete m[k];
+  m[w.id + "|" + centerKey()] = { s: sec, d: todayStr() };
+  saveJSON(WALK_KEY, m);
+}
+function realWalkSec(w) {
+  if (w.walkSec && w.walkFrom === centerKey()) return w.walkSec;
+  const s = walkCacheGet(w);
+  if (s) { w.walkSec = s; w.walkFrom = centerKey(); return s; }
+  return null;
+}
 function walkTimeLabel(w) {
   const s = realWalkSec(w);
   return s ? `걸어서 약 ${Math.max(1, Math.round(s / 60))}분` : travelLabel(w.distance);
@@ -1325,7 +1353,7 @@ async function fetchWalkTime(w) {
     const res = await fetch(u, { signal: ctl.signal });
     if (res.ok) {
       const b = await res.json();
-      if (b.totalTime > 0) { w.walkSec = b.totalTime; w.walkFrom = from; }
+      if (b.totalTime > 0) { w.walkSec = b.totalTime; w.walkFrom = from; walkCacheSet(w, b.totalTime); }
     }
   } catch {}
   clearTimeout(timer);

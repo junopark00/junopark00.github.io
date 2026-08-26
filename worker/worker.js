@@ -22,7 +22,8 @@ export default {
     };
     if (req.method === "OPTIONS") return new Response(null, { status: 204, headers: cors });
     if (req.method !== "GET") return new Response("method not allowed", { status: 405, headers: cors });
-    if (origin && !ALLOWED_ORIGINS.includes(origin)) return new Response("forbidden origin", { status: 403, headers: cors });
+    // Browsers always send Origin on cross-origin fetches — no Origin means curl/bots burning our API quotas
+    if (!ALLOWED_ORIGINS.includes(origin)) return new Response("forbidden origin", { status: 403, headers: cors });
 
     const url = new URL(req.url);
     try {
