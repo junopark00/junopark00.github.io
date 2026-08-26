@@ -218,11 +218,15 @@
     background: var(--paper-2);
   }
   input:focus, select:focus { border-color: var(--ink); background: var(--paper); }
-  .mode-fixed { flex: 1; display: flex; align-items: center; padding: 10px 0; font-weight: 600; }
-  .minutes { position: relative; width: 108px; flex: none; display: block; }
-  .minutes input { padding-right: 34px; text-align: right; font-family: var(--font-small); font-weight: 700; }
-  .minutes span { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); color: var(--ink-2); font-size: 13px; pointer-events: none; }
-  .linkbtn { border: 0; background: none; padding: 0; font-size: 12px; color: var(--ink-2); text-decoration: underline; text-underline-offset: 3px; font-weight: 500; letter-spacing: 0; text-transform: none; }
+  /* Radius row: icon | 걸어서 [n 분] | 반경 hint */
+  .radius-row { display: flex; align-items: center; gap: 8px; }
+  .radius-row > .ic { color: var(--ink-2); flex: none; }
+  .walk-label { font-size: 13px; }
+  .minutes { position: relative; width: 82px; flex: none; display: block; }
+  .minutes input { padding: 7px 28px 7px 10px; text-align: right; font-family: var(--font-small); font-weight: 700; font-size: 13px; border-radius: 3px; }
+  .minutes span { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); color: var(--ink-2); font-size: 12px; pointer-events: none; }
+  .radius-row #radiusHint { margin-left: auto; font-size: 12px; color: var(--ink-2); }
+  .linkbtn { border: 0; background: none; padding: 0; font-size: 12px; color: var(--ink-2); font-weight: 500; letter-spacing: 0; text-transform: none; cursor: pointer; }
   .linkbtn:hover { color: var(--ink); }
 
   /* Location row: pin icon | current label (click → search input) | locate button */
@@ -601,15 +605,16 @@
       </div>
 
       <div class="field">
-        <div class="label"><span><svg class="ic" aria-hidden="true"><use href="#i-footprints"/></svg>반경</span><small id="radiusHint"></small></div>
-        <div class="row">
-          <span class="mode-fixed">걸어서</span>
+        <div class="radius-row">
+          <svg class="ic" aria-hidden="true"><use href="#i-footprints"/></svg>
+          <span class="walk-label">걸어서</span>
           <label class="minutes"><input type="number" id="minutes" value="5" min="1" max="20" step="1" aria-label="분" /><span>분</span></label>
+          <small id="radiusHint"></small>
         </div>
       </div>
 
       <div class="field">
-        <div class="label"><span><svg class="ic" aria-hidden="true"><use href="#i-utensils-crossed"/></svg>장르</span><button class="linkbtn" id="resetGenres" type="button"><svg class="ic" aria-hidden="true"><use href="#i-rotate-ccw"/></svg>기본값으로</button></div>
+        <div class="label"><span><svg class="ic" aria-hidden="true"><use href="#i-utensils-crossed"/></svg>장르</span><button class="linkbtn" id="resetGenres" type="button">기본값</button></div>
         <div class="zones">
           <div class="zone want" data-zone="want">
             <div class="zh"><span><svg class="ic" aria-hidden="true"><use href="#i-thumbs-up"/></svg>먹고 싶은</span><small>비우면 전체</small></div>
