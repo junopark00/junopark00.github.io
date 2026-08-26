@@ -1663,7 +1663,10 @@ function saveAuth(t) {
 function kakaoLogin() {
   if (!window.Kakao) { setStatus("카카오 로그인 SDK를 불러오지 못했어요.", true); return; }
   if (!Kakao.isInitialized()) Kakao.init(KAKAO_JS_KEY);
-  Kakao.Auth.authorize({ redirectUri: REDIRECT_URI });
+  // Random state binds the redirect to this browser session (login-CSRF guard)
+  const st = [...crypto.getRandomValues(new Uint8Array(16))].map(x => x.toString(16).padStart(2, "0")).join("");
+  try { sessionStorage.setItem("jmc-oauth-state", st); } catch {}
+  Kakao.Auth.authorize({ redirectUri: REDIRECT_URI, state: st });
 }
 async function refreshAuth() {
   const a = authData();
@@ -1683,9 +1686,14 @@ async function authFetch(url, opts = {}) {
   return res;
 }
 async function handleAuthRedirect() {
-  const code = new URLSearchParams(location.search).get("code");
-  if (!code) return;
+  const sp = new URLSearchParams(location.search);
+  const code = sp.get("code"), err = sp.get("error"), retState = sp.get("state");
+  if (!code && !err) return;
   history.replaceState(null, "", location.pathname);
+  if (err) { if (err !== "access_denied") toast("로그인에 실패했어요"); return; }   // user cancelled → stay quiet
+  let saved = null;
+  try { saved = sessionStorage.getItem("jmc-oauth-state"); sessionStorage.removeItem("jmc-oauth-state"); } catch {}
+  if (!saved || retState !== saved) { toast("로그인 요청이 유효하지 않아요. 다시 시도해주세요."); return; }
   try {
     const r = await fetch(WORKER_BASE + "/auth/token", { method: "POST",
       headers: { "Content-Type": "application/json" }, body: JSON.stringify({ code, redirect_uri: REDIRECT_URI }) });
