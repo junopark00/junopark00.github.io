@@ -1,0 +1,1544 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<title>점메추 — 오늘 점심 뭐 먹지</title>
+<link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
+<meta name="theme-color" content="#151815" media="(prefers-color-scheme: dark)" />
+<meta name="theme-color" content="#F2F4EF" media="(prefers-color-scheme: light)" />
+<link rel="manifest" href="./manifest.webmanifest" />
+<link rel="icon" href="./icons/icon.svg" type="image/svg+xml" />
+<link rel="apple-touch-icon" href="./icons/icon-192.png" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="점메추" />
+<style>
+  /* ---------- Theme tokens: follow the OS setting (dark by default, light palette when the OS prefers light) ---------- */
+  :root {
+    color-scheme: dark;
+    --bg: #151815;
+    --paper: #1E221E;
+    --paper-2: #262B26;          /* inputs and secondary surfaces */
+    --paper-3: #2A2020;          /* notice boxes (reddish tint) */
+    --ink: #ECEFE9;
+    --ink-2: #9AA39B;
+    --line: #353B35;
+    --red: #E2473C;
+    --red-deep: #B8281F;         /* red button hover */
+    --red-text: #FF7A70;         /* red for text */
+    --green: #2F5D46;            /* filled chips and accent backgrounds */
+    --green-text: #74C494;       /* green for text */
+    --yellow: #F2C63B;
+    --map-bg: #22271F;
+    --ticket-ink: #1B1F1A;       /* text on the yellow ticket stays dark regardless of theme */
+    --radius: 14px;
+    --font-display: 'Pretendard', -apple-system, 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif;
+    --font-body: 'Pretendard', -apple-system, 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif;
+    --map-h: 42vh;        /* map height (adjustable via the drag handle) */
+    --detail-w: 440px;    /* right detail panel width (adjustable via the drag handle) */
+  }
+  @media (prefers-color-scheme: light) { :root {
+    color-scheme: light;
+    --bg: #F2F4EF;
+    --paper: #FFFFFF;
+    --paper-2: #F5F7F3;
+    --paper-3: #FFF6F5;
+    --ink: #1B1F1A;
+    --ink-2: #5B635C;
+    --line: #D8DDD4;
+    --red: #D8352B;
+    --red-deep: #A8231B;
+    --red-text: #A8231B;
+    --green: #2F5D46;
+    --green-text: #2F5D46;
+    --map-bg: #E3E8E0;
+  } }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; }
+  body {
+    font-family: var(--font-body);
+    background: var(--bg);
+    color: var(--ink);
+    -webkit-font-smoothing: antialiased;
+    font-size: 15px;
+    line-height: 1.5;
+  }
+  button, input, select { font: inherit; color: inherit; }
+  button { cursor: pointer; }
+  :focus-visible { outline: 3px solid var(--yellow); outline-offset: 2px; }
+
+  /* ---------- Layout (desktop: 3-column grid / mobile: map + bottom sheet) ---------- */
+  .app {
+    display: grid;
+    grid-template-columns: 400px minmax(0, 1fr) auto auto;
+    grid-template-rows: auto var(--map-h) auto minmax(0, 1fr);
+    height: 100vh;
+    height: 100dvh;
+  }
+  .brand {
+    grid-area: 1 / 1 / 2 / 2;
+    background: var(--paper);
+    border-right: 1px solid var(--line);
+    padding: 22px 22px 16px;
+  }
+  .settings {
+    grid-area: 2 / 1 / 5 / 2;
+    background: var(--paper);
+    border-right: 1px solid var(--line);
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    overflow: hidden;
+  }
+  .settings-body {
+    flex: 1 1 auto; min-height: 0; overflow-y: auto;
+    padding: 6px 22px 24px;
+    display: flex; flex-direction: column; gap: 22px;
+  }
+  .settings .actions {
+    flex: none;
+    display: flex; flex-direction: column; gap: 8px;
+    padding: 12px 22px 16px;
+    border-top: 1px solid var(--line);
+    background: var(--paper);
+  }
+  #map { grid-area: 1 / 2 / 3 / 3; width: 100%; height: 100%; background: var(--map-bg); min-height: 0; min-width: 0; }
+  .handle-h { grid-area: 3 / 2 / 4 / 3; }
+  .results {
+    grid-area: 4 / 2 / 5 / 3;
+    overflow-y: auto;
+    padding: 18px 22px 60px;
+    min-height: 0;
+    min-width: 0;
+  }
+  .handle-v { grid-area: 1 / 3 / 5 / 4; }
+  .detail { grid-area: 1 / 4 / 5 / 5; }
+  .sheet { display: contents; }          /* on desktop the sheet is just a wrapper: its children are placed directly in the grid */
+  .sheet-bar { display: none; }
+  .row > * { min-width: 0; }
+
+  /* ---------- Drag handles (resize panes) ---------- */
+  .handle {
+    position: relative;
+    background: var(--paper);
+    user-select: none;
+    touch-action: none;
+    flex: none;
+    transition: background .12s;
+  }
+  .handle::before {
+    content: "";
+    position: absolute;
+    left: 50%; top: 50%;
+    transform: translate(-50%, -50%);
+    border-radius: 999px;
+    background: var(--line);
+    transition: background .12s;
+  }
+  .handle:hover, .handle.dragging { background: var(--paper-2); }
+  .handle:hover::before, .handle.dragging::before { background: var(--green); }
+  .handle-h {
+    height: 12px;
+    cursor: row-resize;
+    border-top: 1px solid var(--line);
+    border-bottom: 1px solid var(--line);
+  }
+  .handle-h::before { width: 56px; height: 4px; }
+  .handle-v {
+    width: 12px;
+    cursor: col-resize;
+    border-left: 1px solid var(--line);
+    border-right: 1px solid var(--line);
+  }
+  .handle-v::before { width: 4px; height: 56px; }
+  .handle[hidden] { display: none; }
+  body.resizing { cursor: inherit; }
+  body.resizing iframe, body.resizing #map { pointer-events: none; }
+
+  /* ---------- Right detail panel ---------- */
+  .detail {
+    width: var(--detail-w);
+    background: var(--paper);
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    min-width: 0;
+  }
+  .detail[hidden] { display: none; }
+  .detail .head {
+    padding: 10px 14px 9px;
+    border-bottom: 1px solid var(--line);
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 2px 10px;
+    align-items: center;
+  }
+  .detail .head .close { grid-column: 2; grid-row: 1 / 3; }
+  .detail .head .close { border: 0; background: none; font-size: 22px; line-height: 1; padding: 0 2px; color: var(--ink-2); }
+  .detail .head .close:hover { color: var(--ink); }
+  .detail .head .c { font-size: 12.5px; color: var(--ink-2); }
+  .detail .head .a { font-size: 13px; color: var(--ink); overflow-wrap: anywhere; }
+  .detail .head .a a { color: var(--green-text); text-decoration: none; font-weight: 700; }
+  .detail .tabs { display: flex; border-bottom: 1px solid var(--line); background: var(--paper-2); }
+  .detail .tabs button {
+    flex: 1; padding: 9px; border: 0; background: none; font-size: 13px; font-weight: 500; color: var(--ink-2);
+    border-bottom: 2px solid transparent; margin-bottom: -1px;
+  }
+  .detail .tabs button[aria-selected="true"] { color: var(--ink); font-weight: 700; border-bottom-color: var(--red); background: var(--paper); }
+  .detail .hint { font-size: 11.5px; color: var(--ink-2); padding: 6px 14px 0; margin: 0; }
+  .detail .hint[hidden] { display: none; }
+  .detail .body { flex: 1; min-height: 0; position: relative; background: var(--map-bg); }
+  .detail .body iframe { border: 0; background: #fff; }
+  .detail .body > * { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .detail .body [hidden] { display: none; }
+  .detail .body .view-tag {
+    inset: auto 10px 10px auto; width: auto; height: auto;
+    font-size: 11px; font-weight: 700; padding: 4px 8px; border-radius: 999px;
+    background: rgba(27,31,26,.75); color: #fff; pointer-events: none;
+  }
+  .detail .foot {
+    display: flex; gap: 8px; padding: 12px 14px; border-top: 1px solid var(--line);
+  }
+  .detail .foot .btn { flex: 1; padding: 10px 8px; font-size: 13px; text-align: center; text-decoration: none; white-space: nowrap; }
+
+
+  /* ---------- Sidebar ---------- */
+  .brand h1 {
+    font-family: var(--font-display);
+    font-weight: 800;
+    font-size: 40px;
+    letter-spacing: -0.03em;
+    line-height: 1;
+    margin: 0;
+    letter-spacing: -0.5px;
+    color: var(--red);
+  }
+  .brand p { margin: 6px 0 0; color: var(--ink-2); font-size: 14px; }
+  .brand-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+
+  .field { display: flex; flex-direction: column; gap: 8px; }
+  .label {
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--ink-2);
+    display: flex; justify-content: space-between; align-items: baseline;
+  }
+  .label small { font-weight: 500; letter-spacing: 0; text-transform: none; color: var(--ink-2); margin-left: 4px; }
+  .row { display: flex; gap: 8px; }
+  input[type="text"], input[type="number"], input[type="password"], select {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1.5px solid var(--line);
+    border-radius: 10px;
+    background: var(--paper-2);
+  }
+  input:focus, select:focus { border-color: var(--ink); background: var(--paper); }
+  .mode { flex: 1; }
+  .minutes { position: relative; width: 108px; flex: none; display: block; }
+  .minutes input { padding-right: 34px; text-align: right; font-variant-numeric: tabular-nums; }
+  .minutes span { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); color: var(--ink-2); font-size: 13px; pointer-events: none; }
+  .linkbtn { border: 0; background: none; padding: 0; font-size: 12px; color: var(--ink-2); text-decoration: underline; text-underline-offset: 3px; font-weight: 500; letter-spacing: 0; text-transform: none; }
+  .linkbtn:hover { color: var(--ink); }
+
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .chip {
+    padding: 6px 12px;
+    border: 1.5px solid var(--line);
+    border-radius: 999px;
+    background: var(--paper);
+    font-size: 14px;
+    transition: background .12s, border-color .12s, color .12s;
+  }
+  .chip { touch-action: none; user-select: none; -webkit-user-select: none; display: inline-flex; align-items: center; gap: 4px; }
+  .chip.want { background: var(--green); border-color: var(--green); color: #fff; }
+  .chip.no { border-style: dashed; border-color: var(--red-text); color: var(--red-text); }
+  .chip.no.skip { border-style: dotted; opacity: .85; }          /* store skipped for today only */
+  .chip.hist { background: var(--paper); border-color: var(--line); color: var(--ink); font-size: 13px; padding: 5px 10px; }
+  .chip.hist.cur { border-color: var(--yellow); background: rgba(242,198,59,.18); }
+  .chip .rm { font-size: 11px; opacity: .6; line-height: 1; padding: 2px 0 2px 2px; }
+  .chip .rm:hover { opacity: 1; }
+  .chip.lifting { opacity: .3; }
+  .chip.ghost {
+    position: fixed; left: 0; top: 0; z-index: 100; pointer-events: none; margin: 0;
+    box-shadow: 0 10px 24px rgba(0,0,0,.35); transform: scale(1.06);
+  }
+  body.dragging-chip { cursor: grabbing; }
+  body.dragging-chip * { cursor: grabbing !important; }
+
+  /* Want / Don't-want zones — rendered as a single component */
+  .zones {
+    display: grid; grid-template-columns: 1fr 1fr;
+    border: 1.5px solid var(--line);
+    border-radius: 12px;
+    overflow: hidden;
+    background: var(--paper-2);
+  }
+  .zone {
+    padding: 9px 9px 10px;
+    min-height: 118px;
+    display: flex; flex-direction: column; gap: 8px;
+    transition: background .12s;
+    min-width: 0;
+  }
+  .zone.no { border-left: 1.5px solid var(--line); }
+  .zone .zh { font-size: 12px; font-weight: 700; display: flex; flex-direction: column; gap: 1px; }
+  .zone .zh small { font-weight: 500; color: var(--ink-2); font-size: 11px; }
+  .zone.want .zh > span { color: var(--green-text); }
+  .zone.no .zh > span { color: var(--red-text); }
+  .zone .chips { flex: 1; align-content: flex-start; min-height: 32px; position: relative; }
+  .zone .chips:empty::before {
+    content: attr(data-empty);
+    font-size: 12px; color: var(--ink-2); opacity: .7;
+    position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; text-align: center;
+  }
+  .zone.want.over { background: rgba(47,93,70,.18); box-shadow: inset 0 0 0 2px var(--green); }
+  .zone.no.over { background: rgba(216,53,43,.14); box-shadow: inset 0 0 0 2px var(--red); }
+  .zone-input {
+    grid-column: 1 / -1;
+    display: flex; gap: 6px; align-items: center;
+    padding: 8px;
+    border-top: 1.5px solid var(--line);
+    background: var(--paper);
+  }
+  .zone-input input[type="text"] { flex: 1; min-width: 0; padding: 7px 10px; font-size: 13px; border-radius: 8px; }
+
+  .btn {
+    padding: 12px 16px;
+    border-radius: 10px;
+    border: 1.5px solid var(--ink);
+    background: var(--ink);
+    color: var(--paper);
+    font-weight: 700;
+  }
+  .btn.secondary { background: var(--paper); color: var(--ink); }
+  .btn.ghost { background: transparent; border-color: var(--line); color: var(--ink-2); font-weight: 500; }
+  .btn:disabled { opacity: .45; cursor: not-allowed; }
+  .btn.red { background: var(--red); border-color: var(--red); color: #fff; }
+  .btn.red:hover:not(:disabled) { background: var(--red-deep); border-color: var(--red-deep); }
+
+
+
+  .status { font-size: 13px; color: var(--ink-2); }
+  .status[hidden] { display: none; }
+  .field[hidden] { display: none; }
+  .status.error { color: var(--red-text); font-weight: 600; }
+
+  /* ---------- Ticket (signature): idle (pick button only) → rolling (reel) → done (result) ---------- */
+  .ticket {
+    position: relative;
+    background: var(--yellow);
+    color: var(--ticket-ink);
+    border-radius: var(--radius);
+    padding: 20px 26px;
+    margin-bottom: 16px;
+    overflow: hidden;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 16px;
+    align-items: center;
+  }
+  .ticket > * { min-width: 0; }
+  .ticket .t-head { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+  .ticket .t-count { font-size: 13px; color: rgba(27,31,26,.7); }
+  .ticket[data-state="idle"] .name, .ticket[data-state="idle"] .meta, .ticket[data-state="idle"] .t-done { display: none; }
+  .ticket[data-state="rolling"] .t-idle, .ticket[data-state="done"] .t-idle { display: none; }
+  .ticket[data-state="rolling"] .t-done { pointer-events: none; opacity: .55; }
+  .ticket[hidden] { display: none; }
+  .ticket[data-state="idle"] { padding: 18px 26px; }
+  .ticket .btn.big { font-family: var(--font-display); font-weight: 800; font-size: 20px; padding: 12px 30px; letter-spacing: .02em; }
+  .ticket::before, .ticket::after {
+    content: "";
+    position: absolute;
+    top: 50%; width: 26px; height: 26px;
+    background: var(--bg);
+    border-radius: 50%;
+    transform: translateY(-50%);
+  }
+  .ticket::before { left: -13px; }
+  .ticket::after { right: -13px; }
+  .ticket .eyebrow {
+    font-size: 12px; font-weight: 700; letter-spacing: .1em; color: var(--red-deep);
+  }
+  .ticket[data-state="idle"] .eyebrow { font-size: 15px; letter-spacing: .04em; }
+  .ticket .name {
+    font-family: var(--font-display);
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    font-size: clamp(30px, 4vw, 48px);
+    line-height: 1.05;
+    margin: 4px 0 6px;
+    word-break: keep-all;
+  }
+  /* Slot-machine reel: names scroll downward inside a one-line-tall window */
+  .ticket .reel {
+    position: relative;
+    height: 1.15em;
+    overflow: hidden;
+    -webkit-mask-image: linear-gradient(transparent, #000 18%, #000 82%, transparent);
+    mask-image: linear-gradient(transparent, #000 18%, #000 82%, transparent);
+  }
+  .ticket .reel:not(.spinning) { -webkit-mask-image: none; mask-image: none; }
+  .ticket .reel-strip { will-change: transform; }
+  .ticket .reel-item {
+    height: 1.15em;
+    display: flex; align-items: center;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .ticket .reel-item > span { overflow: hidden; text-overflow: ellipsis; }
+  .ticket .reel.landed .reel-item:first-child { animation: reelLand .38s cubic-bezier(.2,.9,.3,1.3); }
+  @keyframes reelLand {
+    0%   { transform: translateY(-14%); }
+    60%  { transform: translateY(5%); }
+    100% { transform: translateY(0); }
+  }
+  .ticket .meta { font-size: 14px; color: var(--ticket-ink); }
+  .ticket .meta span + span::before { content: " · "; color: rgba(27,31,26,.5); }
+  .ticket .actions { display: flex; flex-direction: column; gap: 8px; }
+  .ticket .actions .btn { padding: 10px 14px; white-space: nowrap; text-align: center; }
+  .ticket .btn.secondary { background: #fff; border-color: #fff; color: #1B1F1A; }
+  .ticket .btn.ghost { border-color: rgba(0,0,0,.25); color: var(--ticket-ink); background: transparent; }
+  .ticket .btn.ghost:hover { background: rgba(0,0,0,.08); }
+
+
+  /* ---------- List ---------- */
+  .list { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 10px; }
+  .card {
+    background: var(--paper);
+    border: 1.5px solid var(--line);
+    border-radius: var(--radius);
+    padding: 14px 16px;
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 6px 12px;
+    cursor: pointer;
+    transition: border-color .12s, transform .12s;
+  }
+  .card:hover { border-color: var(--ink); }
+  .card.active { border-color: var(--red); box-shadow: 0 0 0 2px rgba(216,53,43,.15); }
+  .card .n { font-weight: 700; font-size: 16px; min-width: 0; overflow-wrap: anywhere; }
+  .card .dist {
+    font-variant-numeric: tabular-nums;
+    font-weight: 700;
+    color: var(--green-text);
+    white-space: nowrap;
+  }
+  .card .c { grid-column: 1 / -1; font-size: 13px; color: var(--ink-2); }
+  .card .a { grid-column: 1 / -1; font-size: 12.5px; color: var(--ink-2); }
+  .card .links { grid-column: 1 / -1; display: flex; gap: 12px; font-size: 12.5px; margin-top: 4px; }
+  .card .links a { color: var(--green-text); font-weight: 600; text-decoration: none; }
+  .card .links button { border: 0; background: none; padding: 0; color: var(--red-text); font-size: 12.5px; font-weight: 600; }
+
+
+  /* today's pick history */
+  .history { display: flex; align-items: flex-start; gap: 8px; margin: -6px 0 16px; font-size: 12px; color: var(--ink-2); }
+  .history .h-label { flex: none; padding-top: 6px; font-weight: 700; letter-spacing: .04em; }
+  .history[hidden] { display: none; }
+
+  /* empty-state actions */
+  .empty .btn { margin-top: 14px; padding: 9px 16px; font-size: 13px; }
+  .empty .btn + .btn { margin-left: 6px; }
+
+  /* toast */
+  .toast {
+    position: fixed; left: 50%; bottom: calc(24px + env(safe-area-inset-bottom)); transform: translateX(-50%) translateY(10px);
+    background: var(--ink); color: var(--paper); padding: 10px 16px; border-radius: 999px; font-size: 13px; font-weight: 600;
+    opacity: 0; pointer-events: none; transition: opacity .18s, transform .18s; z-index: 60; white-space: nowrap;
+  }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  .empty {
+    padding: 48px 20px;
+    text-align: center;
+    color: var(--ink-2);
+    border: 1.5px dashed var(--line);
+    border-radius: var(--radius);
+  }
+  .empty b { color: var(--ink); display: block; font-size: 17px; margin-bottom: 6px; }
+
+  /* ---------- Mobile: full-bleed map with a bottom sheet holding Settings / List / Detail ---------- */
+  @media (max-width: 860px) {
+    body { overflow: hidden; }
+    .app { display: flex; flex-direction: column; }
+    .brand {
+      flex: none; padding: 8px 14px 8px 18px; border-right: 0; border-bottom: 1px solid var(--line);
+      padding-top: calc(8px + env(safe-area-inset-top));
+    }
+    .brand-row { align-items: center; }
+    .brand h1 { font-size: 22px; line-height: 1.2; }
+    .brand p { display: none; }
+    #map { flex: 1 1 auto; height: auto; min-height: 96px; }
+    .handle-h, .handle-v { display: none; }
+
+    .sheet {
+      display: flex; flex-direction: column;
+      flex: none;
+      height: var(--sheet-h, 52dvh);
+      max-height: 92dvh;
+      min-height: 0;
+      background: var(--paper);
+      border-top: 1px solid var(--line);
+      border-radius: 18px 18px 0 0;
+      box-shadow: 0 -10px 30px rgba(0,0,0,.28);
+      transition: height .22s ease-out;
+      position: relative; z-index: 5;
+      padding-bottom: env(safe-area-inset-bottom);
+    }
+    .sheet.dragging { transition: none; }
+    .sheet-bar { display: block; flex: none; touch-action: none; user-select: none; -webkit-user-select: none; cursor: grab; }
+    .sheet-bar .grip { width: 44px; height: 5px; border-radius: 99px; background: var(--line); margin: 8px auto 2px; }
+    .stabs { display: flex; padding: 0 8px; border-bottom: 1px solid var(--line); }
+    .stabs button {
+      flex: 1; padding: 9px 4px 10px; border: 0; background: none;
+      font-size: 14px; font-weight: 700; color: var(--ink-2);
+      border-bottom: 2px solid transparent; margin-bottom: -1px; white-space: nowrap;
+    }
+    .stabs button[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--red); }
+    .stabs .tc { font-weight: 500; font-size: 12px; color: var(--ink-2); margin-left: 3px; }
+
+    .panel { display: none; }
+    .panel.active { display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+    .sheet .panel[hidden] { display: none; }
+
+    .settings { border: 0; }
+    .settings.active { overflow: hidden; }
+    .settings-body { padding: 14px 16px 16px; gap: 18px; }
+    .settings .actions { padding: 10px 16px calc(12px + env(safe-area-inset-bottom)); }
+    .sheet { padding-bottom: 0; }
+    .brand h1 { margin: 0; }
+
+    .results { padding: 0 14px 24px; }
+    .results.active { display: block; }
+    .results { padding-top: 12px; }
+    .ticket { grid-template-columns: minmax(0, 1fr); padding: 16px 18px; gap: 12px; }
+    .ticket[data-state="idle"] { padding: 14px 18px 16px; }
+    .ticket .t-idle .btn.big { width: 100%; }
+    .ticket .name { font-size: 28px; }
+    .ticket .t-done { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 8px; }
+    .ticket[data-state="idle"] .t-done { display: none; }
+    .ticket .t-done .btn { padding: 10px 6px; font-size: 13px; white-space: normal; min-width: 0; line-height: 1.25; }
+    .ticket .t-done .btn:last-child:nth-child(odd) { grid-column: 1 / -1; }
+    .history { flex-wrap: wrap; }
+    .list { grid-template-columns: 1fr; }
+    .card { padding: 12px 14px; }
+    .empty { padding: 32px 16px; }
+
+    .detail { width: auto; }
+    .detail .body { min-height: 240px; flex: 1 0 240px; }
+    .detail .foot { position: sticky; bottom: 0; background: var(--paper); }
+    .detail.no-place .head, .detail.no-place .tabs, .detail.no-place .body, .detail.no-place .hint, .detail.no-place .foot { display: none; }
+    .detail .d-empty { margin: 16px 14px; }
+    .detail .d-empty[hidden] { display: none; }
+  }
+  @media (max-width: 380px) {
+    .stabs button { font-size: 13px; }
+    .ticket .name { font-size: 24px; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .chip, .card, .btn, .handle { transition: none; }
+    .ticket .reel-item { animation: none; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <!-- ================= Brand (desktop: top-left / mobile: top bar) ================= -->
+  <header class="brand" id="brand">
+    <div class="brand-row">
+      <h1>점메추</h1>
+    </div>
+    <p>반경 안에서, 먹기 싫은 건 빼고, 하나 골라드림.</p>
+  </header>
+
+  <!-- ================= Map ================= -->
+  <div id="map" role="img" aria-label="주변 음식점 지도"></div>
+  <div class="handle handle-h" id="splitH" role="separator" aria-orientation="horizontal" aria-label="지도와 목록 크기 조절 (드래그 또는 ↑↓ 키)" tabindex="0" title="끌어서 지도 높이 조절 · 더블클릭하면 원래대로"></div>
+
+  <!-- ================= Sheet: spread across the grid on desktop, a bottom sheet on mobile ================= -->
+  <div class="sheet" id="sheet">
+    <div class="sheet-bar" id="sheetBar">
+      <div class="grip" aria-hidden="true"></div>
+      <div class="stabs" role="tablist" aria-label="화면 전환">
+        <button type="button" role="tab" data-panel="settings" aria-selected="true">조건</button>
+        <button type="button" role="tab" data-panel="results" aria-selected="false">목록<span class="tc" id="tabCount"></span></button>
+        <button type="button" role="tab" data-panel="detail" id="stabDetail" aria-selected="false">상세</button>
+      </div>
+    </div>
+
+    <!-- ---------- Settings ---------- -->
+    <section class="panel settings active" id="panelSettings" aria-label="검색 조건">
+     <div class="settings-body">
+      <div class="field">
+        <div class="label"><span>내 위치 <small id="locHint"></small></span><button class="btn ghost" id="geo" style="padding:4px 10px;font-size:12px">현재 위치 잡기</button></div>
+      </div>
+
+      <div class="field">
+        <div class="label"><span>반경</span><small id="radiusHint"></small></div>
+        <div class="row">
+          <select id="mode" class="mode" aria-label="이동 수단">
+            <option value="walk">🚶 걸어서</option>
+            <option value="run">🏃 뛰어서</option>
+            <option value="drive">🚗 차 타고</option>
+            <option value="fly">✈️ 날아서</option>
+          </select>
+          <label class="minutes"><input type="number" id="minutes" value="5" min="1" step="1" aria-label="분" /><span>분</span></label>
+        </div>
+      </div>
+
+      <div class="field">
+        <div class="label"><span>장르</span><button class="linkbtn" id="resetGenres" type="button">기본값으로</button></div>
+        <div class="zones">
+          <div class="zone want" data-zone="want">
+            <div class="zh"><span>먹고 싶은</span><small>비우면 전체</small></div>
+            <div class="chips" id="wantChips" data-empty="여기로 끌어다 놓기"></div>
+          </div>
+          <div class="zone no" data-zone="no">
+            <div class="zh"><span>먹기 싫은</span><small>이름·업종에 포함되면 제외</small></div>
+            <div class="chips" id="noChips" data-empty="여기로 끌어다 놓기"></div>
+          </div>
+          <div class="zone-input">
+            <input type="text" id="genreInput" placeholder="직접 입력 후 Enter (Shift+Enter는 먹기 싫은에)" aria-label="장르 직접 입력" />
+          </div>
+        </div>
+      </div>
+
+     </div>
+      <div class="actions">
+        <button class="btn" id="search" disabled>이 조건으로 찾기</button>
+        <div class="status" id="status" hidden></div>
+      </div>
+    </section>
+
+    <!-- ---------- List + ticket ---------- -->
+    <section class="panel results" id="panelResults" aria-label="검색 결과">
+      <div class="ticket" id="ticket" data-state="idle" aria-live="polite" hidden>
+        <div class="t-main">
+          <div class="t-head"><span class="eyebrow">오늘의 점심</span><span class="t-count" id="count">먼저 조건으로 찾아보세요</span></div>
+          <div class="name reel" id="tName"><div class="reel-strip" id="reelStrip"><div class="reel-item"><span>—</span></div></div></div>
+          <div class="meta" id="tMeta"></div>
+        </div>
+        <div class="actions t-idle">
+          <button class="btn red big" id="pick" type="button" disabled>뽑기</button>
+        </div>
+        <div class="actions t-done">
+          <button class="btn secondary" id="tDetail" type="button">상세 보기</button>
+          <a class="btn ghost" id="tLink" href="#" target="_blank" rel="noopener">카카오맵 열기</a>
+          <button class="btn ghost" id="tReroll" type="button">다시 뽑기</button>
+          <button class="btn ghost" id="tSkip" type="button">여긴 빼고 뽑기</button>
+          <button class="btn ghost" id="tShare" type="button">공유</button>
+        </div>
+      </div>
+      <div class="history" id="history" hidden>
+        <span class="h-label">오늘 뽑힌</span>
+        <div class="chips" id="historyChips"></div>
+      </div>
+
+      <div class="list" id="list"></div>
+      <div class="empty" id="empty">
+        <b>아직 결과가 없어요</b>
+        반경과 장르를 고른 뒤 「이 조건으로 찾기」를 누르세요.
+      </div>
+    </section>
+
+    <!-- ---------- Place detail (desktop: right panel / mobile: sheet tab) ---------- -->
+    <div class="handle handle-v" id="splitV" role="separator" aria-orientation="vertical" aria-label="상세 패널 폭 조절 (드래그 또는 ←→ 키)" tabindex="0" title="끌어서 패널 폭 조절 · 더블클릭하면 원래대로" hidden></div>
+    <aside class="panel detail" id="detail" hidden aria-label="가게 상세 정보">
+      <div class="head">
+        <div class="a" id="dAddr"></div>
+        <button class="close" id="dClose" type="button" aria-label="닫기">×</button>
+        <div class="c" id="dCat"></div>
+      </div>
+      <div class="empty d-empty" id="dEmpty" hidden>
+        <b>아직 고른 가게가 없어요</b>
+        뽑기를 하거나 목록·지도에서 가게를 누르면 여기에 상세가 보여요.
+      </div>
+      <div class="tabs" role="tablist">
+        <button type="button" role="tab" id="tabNaver" aria-selected="true" data-tab="naver">네이버 플레이스</button>
+        <button type="button" role="tab" id="tabRv" aria-selected="false" data-tab="rv">로드뷰</button>
+      </div>
+      <div class="body">
+        <iframe id="dNaver" title="네이버 플레이스" referrerpolicy="no-referrer-when-downgrade" hidden></iframe>
+        <div id="dRoadview"></div>
+        <div id="dStatic" hidden></div>
+        <div class="view-tag" id="dViewTag" hidden></div>
+      </div>
+      <p class="hint" id="dHint">지도의 핀이나 「목록보기」를 누르면 영업시간·리뷰·메뉴가 보여요.</p>
+      <div class="foot">
+        <a class="btn" id="dOpen" href="#" target="_blank" rel="noopener">카카오맵에서 열기</a>
+        <a class="btn secondary" id="dRoute" href="#" target="_blank" rel="noopener">길찾기</a>
+        <button class="btn ghost" id="dPick" type="button">오늘은 여기!</button>
+      </div>
+    </aside>
+  </div>
+</div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+/* ============================================================
+   Config
+   - KAKAO_JS_KEY : public by design; it is protected by the site-domain list in
+                    the Kakao console (플랫폼 > Web), so hardcoding it is fine.
+   - SEARCH_PROXY : Cloudflare Worker URL (worker/worker.js) that holds the REST
+                    key as a secret and only answers to the allowed origins.
+                    Leave empty to search through the JS SDK instead.
+   - KAKAO_REST_KEY : local testing only. Never commit a real REST key — it has no
+                    domain restriction. Empty → the app searches via the JS SDK.
+   ============================================================ */
+const KAKAO_JS_KEY   = "915c35e47a9ec22fe51b99e9be2e3532";
+const SEARCH_PROXY   = "https://jummechu-api.td-junopark.workers.dev/search";
+const KAKAO_REST_KEY = "";
+
+const GENRES = ["한식","중식","일식","양식","분식","고기","국밥","면","돈까스","치킨","피자","버거","샐러드","아시안","카페"];
+const MAX_RADIUS_M = 20000;   // Kakao API upper limit
+const MAX_PAGES = 3;          // up to 45 results per keyword
+
+const $ = (id) => document.getElementById(id);
+const state = {
+  center: null,        // {lat, lng}
+  genres: new Set(GENRES),   // default: every genre starts in "want"
+  excludes: new Set(),
+  places: [],          // list after filters are applied
+  map: null, ps: null,
+  markers: [], centerMarker: null, circle: null, info: null,
+  picked: null, activeId: null,
+  skips: new Set(),    // store names skipped for today only (not persisted across days)
+  recent: [],          // last few picked ids, avoided on re-pick
+  history: [],         // today's picks
+};
+
+/* ---------- Persistence ---------- */
+const PREFS_KEY = "jmc-prefs", TODAY_KEY = "jmc-today";
+const todayStr = () => { const d = new Date(); return `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`; };
+function loadJSON(k, d) { try { return JSON.parse(localStorage.getItem(k)) ?? d; } catch { return d; } }
+function saveJSON(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} }
+function savePrefs() {
+  saveJSON(PREFS_KEY, { genres: [...state.genres], excludes: [...state.excludes], mode: $("mode").value, minutes: $("minutes").value });
+}
+function saveToday() { saveJSON(TODAY_KEY, { date: todayStr(), skips: [...state.skips], history: state.history, recent: state.recent }); }
+function loadPersisted() {
+  const pr = loadJSON(PREFS_KEY, null);
+  if (pr) {
+    if (Array.isArray(pr.genres)) state.genres = new Set(pr.genres);
+    if (Array.isArray(pr.excludes)) state.excludes = new Set(pr.excludes);
+    if (pr.mode && MODES[pr.mode]) $("mode").value = pr.mode;
+    if (pr.minutes >= 1) $("minutes").value = pr.minutes;
+  }
+  const td = loadJSON(TODAY_KEY, null);
+  if (td && td.date === todayStr()) {
+    state.skips = new Set(td.skips || []); state.history = td.history || []; state.recent = td.recent || [];
+  }
+}
+
+/* ---------- Chip UI: want / don't-want ---------- */
+// A token lives in exactly one of state.genres ("want"), state.excludes ("no") or state.skips (today-only "no")
+function moveToken(t, zone) {
+  state.genres.delete(t); state.excludes.delete(t); state.skips.delete(t);
+  (zone === "no" ? state.excludes : state.genres).add(t);
+  renderTokens(); applyFilter();
+}
+function deleteToken(t) {
+  state.genres.delete(t); state.excludes.delete(t); state.skips.delete(t);
+  renderTokens(); applyFilter();
+}
+function skipPlace(name) { state.skips.add(name); renderTokens(); applyFilter(); }
+function resetGenres() {
+  GENRES.forEach(g => { if (!state.excludes.has(g)) state.genres.add(g); });
+  renderTokens(); applyFilter();
+}
+$("resetGenres").onclick = resetGenres;
+function makeChip(t, zone, extraClass = "") {
+  const b = document.createElement("button");
+  b.type = "button"; b.className = ("chip " + zone + " " + extraClass).trim();
+  b.dataset.token = t; b.dataset.from = zone;
+  b.title = "끌어서 옮기기 · 클릭하면 반대쪽으로";
+  const label = document.createElement("span"); label.textContent = t; b.appendChild(label);
+  const rm = document.createElement("span"); rm.className = "rm"; rm.textContent = "✕"; rm.title = "지우기";
+  b.appendChild(rm);
+  b.onkeydown = e => {
+    if (e.key === "ArrowLeft") { e.preventDefault(); moveToken(t, "want"); }
+    else if (e.key === "ArrowRight") { e.preventDefault(); moveToken(t, "no"); }
+    else if (e.key === "Delete" || e.key === "Backspace") { e.preventDefault(); deleteToken(t); }
+  };
+  enableChipDrag(b, t, zone);
+  return b;
+}
+function renderTokens() {
+  const want = $("wantChips"), no = $("noChips");
+  want.innerHTML = no.innerHTML = "";
+  state.genres.forEach(t => want.appendChild(makeChip(t, "want")));
+  state.excludes.forEach(t => no.appendChild(makeChip(t, "no")));
+  state.skips.forEach(t => { const c = makeChip(t, "no", "skip"); c.title = "오늘만 제외 · 끌어서 옮기기"; no.appendChild(c); });
+  savePrefs(); saveToday();
+}
+const renderGenres = renderTokens, renderExcludes = renderTokens;
+
+// Pointer-event based drag (works for both mouse and touch)
+function zoneAt(x, y) { return document.elementFromPoint(x, y)?.closest("[data-zone]") || null; }
+function enableChipDrag(chip, token, fromZone) {
+  chip.addEventListener("pointerdown", e => {
+    if (e.button !== 0) return;
+    const sx = e.clientX, sy = e.clientY, pid = e.pointerId;
+    const offX = e.clientX - chip.getBoundingClientRect().left, offY = e.clientY - chip.getBoundingClientRect().top;
+    let started = false, ghost = null, over = null;
+    const setOver = z => {
+      if (over === z) return;
+      over?.classList.remove("over"); z?.classList.add("over"); over = z;
+    };
+    const move = ev => {
+      if (!started) {
+        if (Math.hypot(ev.clientX - sx, ev.clientY - sy) < 6) return;
+        started = true;
+        chip.setPointerCapture(pid);
+        ghost = chip.cloneNode(true); ghost.classList.add("ghost"); ghost.classList.remove("lifting");
+        document.body.appendChild(ghost);
+        chip.classList.add("lifting"); document.body.classList.add("dragging-chip");
+      }
+      ghost.style.transform = `translate(${ev.clientX - offX}px, ${ev.clientY - offY}px) scale(1.06)`;
+      setOver(zoneAt(ev.clientX, ev.clientY));
+    };
+    const end = ev => {
+      chip.removeEventListener("pointermove", move);
+      chip.removeEventListener("pointerup", end);
+      chip.removeEventListener("pointercancel", end);
+      if (!started) {
+        // plain click, no drag
+        if (ev.type === "pointerup") {
+          if (ev.target.closest(".rm")) deleteToken(token);
+          else moveToken(token, fromZone === "want" ? "no" : "want");
+        }
+        return;
+      }
+      ghost?.remove(); chip.classList.remove("lifting"); document.body.classList.remove("dragging-chip");
+      const z = ev.type === "pointerup" ? zoneAt(ev.clientX, ev.clientY) : null;
+      setOver(null);
+      if (z && z.dataset.zone !== fromZone) moveToken(token, z.dataset.zone);
+    };
+    chip.addEventListener("pointermove", move);
+    chip.addEventListener("pointerup", end);
+    chip.addEventListener("pointercancel", end);
+  });
+}
+
+// Free-text input: comma-separated, committed to "want" on Enter or blur (Shift+Enter → "don't want")
+function commitInput(toNo = false) {
+  const el = $("genreInput");
+  const toks = el.value.split(",").map(s => s.trim()).filter(Boolean);
+  if (!toks.length) return;
+  el.value = "";
+  const zone = toNo ? "no" : "want";
+  toks.forEach(t => { state.genres.delete(t); state.excludes.delete(t); state.skips.delete(t); (zone === "no" ? state.excludes : state.genres).add(t); });
+  renderTokens(); applyFilter();
+}
+function commitInputs() { commitInput(); }
+$("genreInput").addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); commitInput(e.shiftKey); } });
+$("genreInput").addEventListener("blur", () => commitInput());
+
+/* ---------- Radius: travel mode × minutes ---------- */
+const MODES = {
+  walk:  { label: "걸어서",  mpm: 67 },     // ~4 km/h
+  run:   { label: "뛰어서",  mpm: 150 },    // ~9 km/h
+  drive: { label: "차 타고", mpm: 500 },    // ~30 km/h city driving
+  fly:   { label: "날아서",  mpm: 14000 },  // ~840 km/h — effectively the max radius
+};
+function currentMode() { return MODES[$("mode").value] || MODES.walk; }
+function rawRadius() { return currentMode().mpm * Math.max(1, parseFloat($("minutes").value) || 1); }
+function radiusMeters() {
+  const m = Math.round(rawRadius() / 10) * 10;
+  return Math.max(10, Math.min(MAX_RADIUS_M, m));
+}
+function travelLabel(dist) {
+  const mo = currentMode();
+  return `${mo.label} 약 ${Math.max(1, Math.round(dist / mo.mpm))}분`;
+}
+function updateRadiusHint() {
+  const capped = rawRadius() > MAX_RADIUS_M;
+  $("radiusHint").textContent = `반경 ${fmtDist(radiusMeters())}${capped ? " (최대)" : ""}`;
+  drawCircle();
+  if (state.picked) fillTicketMeta(state.picked);
+  if (detail.place) $("dCat").textContent = detailCat(detail.place);
+}
+$("minutes").addEventListener("input", () => { updateRadiusHint(); markDirty(); savePrefs(); });
+$("mode").addEventListener("change", () => { markDirty(); savePrefs(); });
+$("minutes").addEventListener("blur", () => { const v = parseFloat($("minutes").value); if (!(v >= 1)) { $("minutes").value = 1; updateRadiusHint(); } });
+$("mode").addEventListener("change", updateRadiusHint);
+
+/* ---------- Status display ---------- */
+// Shown only for errors; progress is conveyed through the button label
+function setStatus(msg, isError = false) {
+  const s = $("status");
+  s.hidden = !isError; s.textContent = isError ? msg : ""; s.className = "status" + (isError ? " error" : "");
+}
+let searchDirty = false;
+function setSearchBusy(v, label) {
+  const b = $("search"); b.disabled = v; b.textContent = v ? (label || "찾는 중…") : "이 조건으로 찾기";
+}
+// After a search, flag changed location/radius via the button label
+function markDirty() {
+  if (!state.all || searchDirty || $("search").disabled) return;
+  searchDirty = true; $("search").textContent = "바뀐 조건으로 다시 찾기";
+}
+
+/* ---------- SDK loading ---------- */
+// Key/domain problems are reported only in the status area (no setup component)
+function loadSdk(key) {
+  if (!key) { setStatus("카카오 JavaScript 키가 없어요. 파일 상단 KAKAO_JS_KEY에 넣어주세요.", true); return; }
+  const s = document.createElement("script");
+  s.src = `https://dapi.kakao.com/v2/maps/sdk.js?appkey=${encodeURIComponent(key)}&libraries=services&autoload=false`;
+  s.onload = () => { try { kakao.maps.load(initMap); } catch (e) { setStatus("카카오맵 초기화 실패: " + e.message, true); } };
+  s.onerror = () => setStatus("카카오맵 SDK를 못 불러왔어요. 키가 맞는지, 카카오 콘솔에 이 페이지 도메인이 등록됐는지 확인하세요.", true);
+  document.head.appendChild(s);
+}
+
+function initMap() {
+  const fallback = { lat: 37.5665, lng: 126.9780 }; // Seoul City Hall
+  state.map = new kakao.maps.Map($("map"), { center: new kakao.maps.LatLng(fallback.lat, fallback.lng), level: 4 });
+  state.ps = new kakao.maps.services.Places();
+  state.info = new kakao.maps.InfoWindow({ zIndex: 2, removable: true });
+  kakao.maps.event.addListener(state.map, "click", e => setCenter(e.latLng.getLat(), e.latLng.getLng(), "지도에서 찍은 지점"));
+  // Re-layout the map when the pane is resized so it doesn't distort
+  new ResizeObserver(() => {
+    if (!state.map) return;
+    const c = state.map.getCenter();
+    state.map.relayout(); state.map.setCenter(c);
+  }).observe($("map"));
+  $("search").disabled = false;
+  setStatus("연결됐어요.");
+  autoLocate();
+}
+
+/* ---------- Location ---------- */
+// Browsers don't remember permissions for pages opened via file://, so they prompt every time (http://localhost is remembered).
+// So we persist the last location and only auto-refresh the current position when permission is already granted.
+const LOC_KEY = "jmc-loc";
+function saveLoc(lat, lng) { try { localStorage.setItem(LOC_KEY, JSON.stringify({ lat, lng, t: Date.now() })); } catch {} }
+function loadLoc() { try { return JSON.parse(localStorage.getItem(LOC_KEY) || "null"); } catch { return null; } }
+async function permissionState() {
+  try { return (await navigator.permissions.query({ name: "geolocation" })).state; } catch { return "unknown"; }
+}
+async function autoLocate() {
+  const saved = loadLoc();
+  if (saved) setCenter(saved.lat, saved.lng, "마지막 위치");
+  const perm = await permissionState();
+  if (perm === "granted") { locate(); return; }
+  if (perm === "denied") { setStatus("위치 권한이 차단돼 있어요. 주소창 자물쇠에서 허용하거나 지도를 클릭하세요.", true); return; }
+  setStatus(saved ? "마지막 위치를 불러왔어요. 「현재 위치 잡기」로 새로 잡을 수 있어요." : "「현재 위치 잡기」를 누르거나 지도를 클릭해 기준점을 정하세요.");
+}
+function locate() {
+  if (!navigator.geolocation) { setStatus("이 브라우저는 위치를 지원하지 않아요. 지도를 클릭해 기준점을 정하세요.", true); return; }
+  if (!state.map) { setStatus("지도가 아직 준비되지 않았어요.", true); return; }
+  const geo = $("geo"); geo.disabled = true; geo.textContent = "확인 중…";
+  navigator.geolocation.getCurrentPosition(
+    p => { setCenter(p.coords.latitude, p.coords.longitude, "현재 위치"); saveLoc(p.coords.latitude, p.coords.longitude); setStatus(""); geo.disabled = false; geo.textContent = "현재 위치 잡기"; },
+    err => {
+      const msg = { 1: "위치 권한이 거부됐어요. 주소창 자물쇠 아이콘에서 허용할 수 있어요.", 2: "위치를 알아낼 수 없어요.", 3: "위치 확인이 너무 오래 걸려요." }[err.code] || "위치를 못 잡았어요.";
+      setStatus(msg + " 지도를 클릭해 기준점을 정할 수도 있어요.", true);
+      geo.disabled = false; geo.textContent = "현재 위치 잡기";
+    },
+    { enableHighAccuracy: false, maximumAge: 5 * 60 * 1000, timeout: 10000 }
+  );
+}
+$("geo").onclick = () => locate();
+
+function setCenter(lat, lng, label) {
+  state.center = { lat, lng };
+  const ll = new kakao.maps.LatLng(lat, lng);
+  state.map.setCenter(ll);
+  if (!state.centerMarker) {
+    state.centerMarker = new kakao.maps.Marker({ position: ll, map: state.map, draggable: true, zIndex: 3,
+      image: new kakao.maps.MarkerImage(
+        "data:image/svg+xml;utf8," + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 28 28"><circle cx="14" cy="14" r="10" fill="#D8352B" stroke="#fff" stroke-width="4"/></svg>'),
+        new kakao.maps.Size(28, 28), { offset: new kakao.maps.Point(14, 14) }) });
+    kakao.maps.event.addListener(state.centerMarker, "dragend", () => {
+      const p = state.centerMarker.getPosition(); setCenter(p.getLat(), p.getLng(), "끌어다 놓은 지점");
+    });
+  } else state.centerMarker.setPosition(ll);
+  $("locHint").textContent = label;
+  drawCircle(); markDirty();
+  if (detail.place) $("dRoute").href = routeUrl(detail.place);
+}
+function drawCircle() {
+  if (!state.map || !state.center) return;
+  const opts = { center: new kakao.maps.LatLng(state.center.lat, state.center.lng), radius: radiusMeters(),
+    strokeWeight: 1.5, strokeColor: "#2F5D46", strokeOpacity: .7, fillColor: "#2F5D46", fillOpacity: .08 };
+  if (!state.circle) state.circle = new kakao.maps.Circle({ ...opts, map: state.map });
+  else { state.circle.setPosition(opts.center); state.circle.setRadius(opts.radius); }
+}
+
+/* ---------- Search ---------- */
+// 1st choice: call the REST API directly (errors surface as HTTP codes and messages)
+// 2nd choice: fall back to the JS SDK Places service when no REST key is set
+async function restSearch(path, params) {
+  // Through the worker (key stays server-side) or directly with a local REST key
+  const url = new URL(SEARCH_PROXY ? `${SEARCH_PROXY.replace(/\/$/, "")}/${path}` : "https://dapi.kakao.com/v2/local/search/" + path);
+  Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v));
+  const res = await fetch(url, SEARCH_PROXY ? {} : { headers: { Authorization: "KakaoAK " + KAKAO_REST_KEY } });
+  const body = await res.json().catch(() => ({}));
+  console.log(`[점메추] REST ${path} → ${res.status}`, body);
+  if (!res.ok) throw new Error(`HTTP ${res.status} ${body.message || body.msg || body.errorType || ""}`.trim());
+  return body;
+}
+async function restPaged(path, params) {
+  const acc = [];
+  for (let page = 1; page <= MAX_PAGES; page++) {
+    const body = await restSearch(path, { ...params, page });
+    acc.push(...(body.documents || []));
+    if (!body.meta || body.meta.is_end) break;
+  }
+  return acc;
+}
+function sdkPaged(label, opts, fn) {
+  return new Promise((resolve, reject) => {
+    const acc = []; let page = 1;
+    const cb = (data, status, pagination) => {
+      console.log(`[점메추] SDK "${label}" p${page} → ${status}`, data);
+      if (status === kakao.maps.services.Status.OK) {
+        acc.push(...data);
+        if (pagination && pagination.hasNextPage && page < MAX_PAGES) { page++; pagination.nextPage(); return; }
+        resolve(acc);
+      } else if (status === kakao.maps.services.Status.ZERO_RESULT) resolve(acc);
+      else reject(new Error(`SDK 응답 상태: ${status} (REST API 키를 넣으면 정확한 원인이 보여요)`));
+    };
+    fn(cb);
+  });
+}
+
+// With includeAll, run an "all restaurants" category search and layer keyword searches on top.
+async function fetchPlaces(keywords, r, includeAll) {
+  const { lat, lng } = state.center;
+  const jobs = [];
+  if (SEARCH_PROXY || KAKAO_REST_KEY) {
+    const base = { x: lng, y: lat, radius: r, sort: "distance", size: 15 };
+    if (includeAll) jobs.push(restPaged("category.json", { ...base, category_group_code: "FD6" }));
+    keywords.forEach(q => jobs.push(restPaged("keyword.json", { ...base, query: q, category_group_code: "FD6" })));
+  } else {
+    const opts = { location: new kakao.maps.LatLng(lat, lng), radius: r, size: 15, sort: kakao.maps.services.SortBy.DISTANCE };
+    if (includeAll) jobs.push(sdkPaged("전체 음식점", opts, cb => state.ps.categorySearch("FD6", cb, opts)));
+    keywords.forEach(q => jobs.push(sdkPaged(q, opts, cb => state.ps.keywordSearch(q, cb, { ...opts, category_group_code: "FD6" }))));
+  }
+  return (await Promise.all(jobs)).flat();
+}
+
+$("search").onclick = async () => {
+  if (!state.center) { setStatus("기준 위치가 없어요. 지도를 클릭하거나 현재 위치를 잡아주세요.", true); return; }
+  commitInputs();
+  const btn = $("search"); btn.disabled = true;
+  const r = radiusMeters();
+  // If every default genre is in "want" (the default state), treat it as an all-restaurants search and only add keyword searches for custom tokens.
+  const want = [...state.genres];
+  const includeAll = want.length === 0 || GENRES.every(g => state.genres.has(g));
+  const keywords = includeAll ? want.filter(g => !GENRES.includes(g)) : want;
+  setSearchBusy(true, `반경 ${fmtDist(r)} 찾는 중…`);
+  try {
+    const raw = await fetchPlaces(keywords, r, includeAll);
+    const seen = new Set();
+    state.all = raw.filter(p => !seen.has(p.id) && seen.add(p.id))
+      .map(p => ({ ...p, distance: Number(p.distance) || 0 }))
+      .sort((a, b) => a.distance - b.distance);
+    state.picked = null; setTicketState("idle"); setReel(["—"]); closeDetail();
+    applyFilter(true);
+    searchDirty = false;
+    if (!state.all.length) setStatus("결과가 없어요. 반경을 넓히거나 기준 위치를 확인하세요.", true);
+    if (isMobile() && state.all.length) setSheetTab("results");
+  } catch (e) {
+    console.error(e);
+    setStatus("검색 실패: " + e.message, true);
+  } finally { setSearchBusy(false); }
+};
+
+function widenAndSearch() {
+  const cur = Math.max(1, parseFloat($("minutes").value) || 1);
+  let m = cur * 2;
+  while (currentMode().mpm * m > MAX_RADIUS_M && m > cur) m = Math.max(cur + 1, Math.floor(m * 0.8));
+  $("minutes").value = m; updateRadiusHint(); savePrefs();
+  $("search").click();
+}
+
+/* ---------- Filter & render ---------- */
+function isExcluded(p) {
+  if (state.skips.has(p.place_name)) return true;
+  const hay = (p.place_name + " " + p.category_name).toLowerCase();
+  return [...state.excludes].some(k => hay.includes(k.toLowerCase()));
+}
+function applyFilter(fitBounds = false) {
+  if (!state.all) return;
+  state.places = state.all.filter(p => !isExcluded(p));
+  renderList(); renderMarkers(fitBounds); renderHistory();
+  $("ticket").hidden = false;
+  // If the picked place gets filtered out, reset the ticket
+  if (state.picked && !rolling && !state.places.some(p => p.id === state.picked.id)) {
+    state.picked = null; setTicketState("idle"); setReel(["—"]);
+  }
+  const hidden = state.all.length - state.places.length;
+  $("count").textContent = state.places.length
+    ? `${state.places.length}곳 중에서${hidden ? ` · ${hidden}곳 제외` : ""}`
+    : "조건에 맞는 곳이 없어요";
+  $("pick").disabled = state.places.length === 0;
+  $("tabCount").textContent = state.places.length ? state.places.length : "";
+}
+function fmtDist(m) { return m >= 1000 ? (m / 1000).toFixed(1) + "km" : m + "m"; }
+function shortCat(c) { const parts = (c || "").split(">").map(s => s.trim()).filter(Boolean); return parts.slice(1).join(" · ") || "음식점"; }
+
+function renderList() {
+  const list = $("list"); list.innerHTML = "";
+  $("empty").hidden = state.places.length > 0;
+  if (!state.places.length && state.all) {
+    const canWiden = radiusMeters() < MAX_RADIUS_M;
+    $("empty").innerHTML = state.all.length
+      ? `<b>다 걸러졌어요</b>제외 조건에 모두 걸렸어요.<br>
+         <button class="btn secondary" id="emptyClear" type="button">제외 목록 비우기</button>
+         ${canWiden ? `<button class="btn" id="emptyWiden" type="button">반경 2배로 다시 찾기</button>` : ""}`
+      : `<b>결과가 없어요</b>${canWiden ? "반경을 넓혀서 다시 찾아볼까요?" : "이 반경이 최대예요. 기준 위치를 옮겨보세요."}<br>
+         ${canWiden ? `<button class="btn" id="emptyWiden" type="button">반경 2배로 다시 찾기</button>` : ""}`;
+    $("emptyWiden") && ($("emptyWiden").onclick = widenAndSearch);
+    $("emptyClear") && ($("emptyClear").onclick = () => { state.excludes.clear(); state.skips.clear(); renderTokens(); applyFilter(); });
+  }
+  state.places.forEach(p => {
+    const c = document.createElement("article");
+    c.className = "card" + (p.id === state.activeId ? " active" : ""); c.dataset.id = p.id; c.tabIndex = 0;
+    c.innerHTML = `
+      <div class="n">${esc(p.place_name)}</div>
+      <div class="dist">${fmtDist(p.distance)}</div>
+      <div class="c">${esc(shortCat(p.category_name))}</div>
+      <div class="a">${esc(p.road_address_name || p.address_name || "")}${p.phone ? " · " + esc(p.phone) : ""}</div>
+      <div class="links">
+        <a href="${p.place_url}" target="_blank" rel="noopener">카카오맵</a>
+        <button type="button" data-skip="${esc(p.place_name)}">오늘은 빼기</button>
+      </div>`;
+    c.onclick = e => { if (e.target.closest("a,button")) return; focusPlace(p); };
+    c.onkeydown = e => { if (e.key === "Enter") focusPlace(p); };
+    c.querySelector("[data-skip]").onclick = () => skipPlace(p.place_name);
+    list.appendChild(c);
+  });
+}
+function esc(s) { return String(s).replace(/[&<>"']/g, m => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[m])); }
+
+// Marker images: blue pins for every result, a larger yellow pin for the selected / picked place
+const markerImages = {};
+function pinSvg(w, h, fill, stroke) {   // classic teardrop pin, tip at the bottom centre
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 24 30">` +
+    `<path d="M12 28.5C12 28.5 2.5 17.5 2.5 11a9.5 9.5 0 0 1 19 0c0 6.5-9.5 17.5-9.5 17.5z" fill="${fill}" stroke="${stroke}" stroke-width="1.8" stroke-linejoin="round"/>` +
+    `<circle cx="12" cy="11" r="3.6" fill="${stroke}"/></svg>`;
+}
+function markerImage(kind) {
+  if (markerImages[kind]) return markerImages[kind];
+  const spec = kind === "picked"
+    ? { w: 40, h: 50, fill: "#F2C63B", stroke: "#1B1F1A" }    // selected or picked
+    : { w: 28, h: 36, fill: "#3B82F6", stroke: "#FFFFFF" };   // regular result
+  const svg = pinSvg(spec.w, spec.h, spec.fill, spec.stroke);
+  return markerImages[kind] = new kakao.maps.MarkerImage("data:image/svg+xml;utf8," + encodeURIComponent(svg),
+    new kakao.maps.Size(spec.w, spec.h), { offset: new kakao.maps.Point(spec.w / 2, spec.h * 28.5 / 30) });
+}
+function markerKind(p) { return (state.picked && state.picked.id === p.id) || state.activeId === p.id ? "picked" : "pin"; }
+function refreshMarkerStyles() {
+  state.markers.forEach(mk => {
+    const kind = markerKind(mk.p);
+    if (mk.kind === kind) return;
+    mk.kind = kind; mk.m.setImage(markerImage(kind)); mk.m.setZIndex(kind === "picked" ? 5 : 1);
+  });
+}
+function renderMarkers(fitBounds = false) {
+  state.markers.forEach(m => m.setMap(null)); state.markers = [];
+  state.places.forEach(p => {
+    const kind = markerKind(p);
+    const m = new kakao.maps.Marker({ position: new kakao.maps.LatLng(p.y, p.x), map: state.map, title: p.place_name, image: markerImage(kind), zIndex: kind === "picked" ? 5 : 1 });
+    kakao.maps.event.addListener(m, "click", () => focusPlace(p));
+    state.markers.push({ m, id: p.id, p, kind, setMap: v => m.setMap(v) });
+  });
+  if (fitBounds && state.places.length) {
+    const b = new kakao.maps.LatLngBounds();
+    b.extend(new kakao.maps.LatLng(state.center.lat, state.center.lng));
+    state.places.forEach(p => b.extend(new kakao.maps.LatLng(p.y, p.x)));
+    state.map.setBounds(b, 40);
+  }
+}
+function focusPlace(p, scrollList = true, withDetail = true) {
+  state.activeId = p.id;
+  document.querySelectorAll(".card").forEach(c => c.classList.toggle("active", c.dataset.id === p.id));
+  refreshMarkerStyles();
+  const mk = state.markers.find(x => x.id === p.id);
+  const pos = new kakao.maps.LatLng(p.y, p.x);
+  state.map.panTo(pos);
+  state.info.setContent(`<div style="padding:8px 12px;font:500 13px Pretendard,sans-serif;white-space:nowrap"><b>${esc(p.place_name)}</b><br><span style="color:#5B635C">${esc(shortCat(p.category_name))} · ${fmtDist(p.distance)}</span></div>`);
+  state.info.open(state.map, mk ? mk.m : new kakao.maps.Marker({ position: pos }));
+  if (scrollList) document.querySelector(`.card[data-id="${p.id}"]`)?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+  if (withDetail) openDetail(p);
+}
+
+/* ---------- Mobile bottom sheet ---------- */
+const mobileMQ = matchMedia("(max-width: 860px)");
+const isMobile = () => mobileMQ.matches;
+const sheet = { el: $("sheet"), tab: "settings", snap: "half" };
+function sheetSnaps() {
+  const H = window.innerHeight;
+  return { peek: $("sheetBar").offsetHeight + 8, half: Math.round(H * 0.52), full: Math.round(H * 0.9) };
+}
+function setSheetHeight(px, animate = true) {
+  const sn = sheetSnaps();
+  const v = Math.max(sn.peek, Math.min(sn.full, px));
+  sheet.el.classList.toggle("dragging", !animate);
+  sheet.el.style.setProperty("--sheet-h", v + "px");
+}
+function snapSheet(name) { sheet.snap = name; setSheetHeight(sheetSnaps()[name]); }
+function setSheetTab(name, { expand = true } = {}) {
+  sheet.tab = name;
+  document.querySelectorAll(".stabs [role=tab]").forEach(b => b.setAttribute("aria-selected", b.dataset.panel === name));
+  ["settings", "results", "detail"].forEach(n => {
+    const el = n === "detail" ? $("detail") : $(n === "settings" ? "panelSettings" : "panelResults");
+    el.classList.toggle("active", n === name);
+  });
+  if (isMobile() && expand && sheet.snap === "peek") snapSheet("half");
+}
+document.querySelectorAll(".stabs [role=tab]").forEach(b => b.onclick = () => {
+  if (sheet.tab === b.dataset.panel && sheet.snap === "peek") { snapSheet("half"); return; }
+  if (b.dataset.panel === "detail") {
+    // Show the selected place if there is one, otherwise the empty-state hint
+    const p = detail.place || state.picked || state.places?.find(x => x.id === state.activeId);
+    if (p) { openDetail(p); return; }
+    $("detail").hidden = false; $("detail").classList.add("no-place"); $("dEmpty").hidden = false;
+  }
+  setSheetTab(b.dataset.panel);
+  if (b.dataset.panel === "detail") snapSheet("full");
+});
+// Drag the sheet bar to resize (snaps to the nearest stop on release)
+$("sheetBar").addEventListener("pointerdown", e => {
+  if (!isMobile() || e.button !== 0) return;
+  const bar = $("sheetBar"), y0 = e.clientY, h0 = sheet.el.getBoundingClientRect().height;
+  let moved = false, lastY = y0, lastT = performance.now(), vel = 0;
+  const move = ev => {
+    const dy = ev.clientY - y0;
+    if (!moved) {
+      if (Math.abs(dy) <= 4) return;
+      moved = true; bar.setPointerCapture(e.pointerId);   // capture only once movement starts → tab button clicks still work
+    }
+    const now = performance.now(); vel = (ev.clientY - lastY) / Math.max(1, now - lastT); lastY = ev.clientY; lastT = now;
+    setSheetHeight(h0 - dy, false);
+  };
+  const up = ev => {
+    bar.removeEventListener("pointermove", move);
+    if (!moved) return;                                   // tab clicks are handled by the tab buttons
+    const h = sheet.el.getBoundingClientRect().height, sn = sheetSnaps();
+    let name;
+    if (Math.abs(vel) > 0.5) name = vel < 0 ? (h > sn.half ? "full" : "half") : (h < sn.half ? "peek" : "half");   // fast flick → follow the direction
+    else name = Object.entries(sn).sort((a, b) => Math.abs(a[1] - h) - Math.abs(b[1] - h))[0][0];
+    sheet.el.classList.remove("dragging");
+    snapSheet(name);
+  };
+  bar.addEventListener("pointermove", move);
+  bar.addEventListener("pointerup", up, { once: true });
+  bar.addEventListener("pointercancel", up, { once: true });
+});
+let resizeT = null;
+window.addEventListener("resize", () => { clearTimeout(resizeT); resizeT = setTimeout(() => { if (isMobile()) snapSheet(sheet.snap); }, 120); });
+mobileMQ.addEventListener("change", () => {
+  if (!isMobile()) { sheet.el.style.removeProperty("--sheet-h"); if ($("detail").classList.contains("no-place")) closeDetail(); ["panelSettings", "panelResults", "detail"].forEach(id => $(id).classList.remove("active")); $("panelSettings").classList.add("active"); }
+  else setSheetTab(sheet.tab, { expand: false });
+});
+
+/* ---------- Right detail panel ---------- */
+// Kakao blocks embedding its place pages, but Naver Place (m.place.naver.com) renders inside an iframe —
+// including opening hours, reviews and menus. There is no official Kakao→Naver id mapping, so the panel
+// embeds a Naver list search for "name + neighbourhood"; one tap on the pin opens the full page in-frame.
+// The Roadview tab stays as the fallback in case Naver ever blocks framing.
+const NAVER_EMBED = true;                     // set false to make Roadview the default tab
+const detail = { place: null, tab: NAVER_EMBED ? "naver" : "rv", rv: null, rvClient: null, mini: null, req: 0, naverLoaded: null };
+function neighbourhood(p) {
+  // "서울 마포구 상암동 1602" → "상암동"; falls back to the district ("마포구")
+  const toks = (p.address_name || p.road_address_name || "").split(/\s+/);
+  return toks.find(t => /(동|읍|면|리|가)$/.test(t) && !/^[0-9]/.test(t)) || toks.find(t => /(구|군|시)$/.test(t)) || "";
+}
+function naverUrl(p) {
+  const q = `${p.place_name} ${neighbourhood(p)}`.trim();
+  return `https://m.place.naver.com/place/list?query=${encodeURIComponent(q)}`;
+}
+function setDetailTab(tab, force = false) {
+  if (!force && detail.tab === tab) return;
+  detail.tab = tab;
+  const isNaver = tab === "naver";
+  $("tabNaver").setAttribute("aria-selected", isNaver);
+  $("tabRv").setAttribute("aria-selected", !isNaver);
+  $("dNaver").hidden = !isNaver; $("dHint").hidden = !isNaver;
+  $("dRoadview").hidden = isNaver; $("dStatic").hidden = true; $("dViewTag").hidden = true;
+  const p = detail.place; if (!p) return;
+  if (isNaver) {
+    if (detail.naverLoaded !== p.id) { $("dNaver").src = naverUrl(p); detail.naverLoaded = p.id; }
+  } else {
+    showRoadview(p);
+  }
+}
+function detailCat(p) { return `${fmtDist(p.distance)} · ${travelLabel(p.distance)}`; }
+// Kakao map link: /link/from/<name>,<lat>,<lng>/to/<name>,<lat>,<lng> pre-fills both ends
+function routeUrl(p) {
+  const to = `${encodeURIComponent(p.place_name)},${p.y},${p.x}`;
+  if (!state.center) return `https://map.kakao.com/link/to/${to}`;
+  const from = `${encodeURIComponent($("locHint").textContent || "출발지")},${state.center.lat},${state.center.lng}`;
+  return `https://map.kakao.com/link/from/${from}/to/${to}`;
+}
+function openDetail(p) {
+  detail.place = p;
+  $("detail").setAttribute("aria-label", `${p.place_name} 상세 정보`);
+  $("dOpen").title = $("dRoute").title = p.place_name;
+  $("dCat").textContent = detailCat(p);
+  $("dAddr").innerHTML = esc(p.road_address_name || p.address_name || "") + (p.phone ? ` · <a href="tel:${esc(p.phone)}">${esc(p.phone)}</a>` : "");
+  $("dOpen").href = p.place_url;
+  $("dRoute").href = routeUrl(p);
+  $("dPick").hidden = !!(state.picked && state.picked.id === p.id);
+  const wasHidden = $("detail").hidden;
+  $("detail").hidden = false; $("splitV").hidden = false;
+  $("detail").classList.remove("no-place"); $("dEmpty").hidden = true;
+  if (isMobile()) { setSheetTab("detail"); snapSheet("full"); }
+  // wait one frame so the panel has its final size before the Roadview measures it
+  requestAnimationFrame(() => { if (wasHidden && state.map) state.map.relayout(); setDetailTab(detail.tab, true); });
+}
+function closeDetail() {
+  $("detail").hidden = true; $("splitV").hidden = true;
+  $("detail").classList.remove("active", "no-place");
+  detail.place = null; detail.req++;
+  $("dNaver").src = "about:blank"; detail.naverLoaded = null;
+  if (isMobile() && sheet.tab === "detail") { setSheetTab("results"); if (sheet.snap === "full") snapSheet("half"); }
+}
+function bearing(from, to) {   // degrees, 0 = north, clockwise
+  const toRad = d => d * Math.PI / 180, toDeg = r => r * 180 / Math.PI;
+  const y = Math.sin(toRad(to.lng - from.lng)) * Math.cos(toRad(to.lat));
+  const x = Math.cos(toRad(from.lat)) * Math.sin(toRad(to.lat)) - Math.sin(toRad(from.lat)) * Math.cos(toRad(to.lat)) * Math.cos(toRad(to.lng - from.lng));
+  return (toDeg(Math.atan2(y, x)) + 360) % 360;
+}
+function showMiniMap(p) {   // fallback when there is no panorama nearby: a small interactive map
+  const box = $("dStatic"), pos = new kakao.maps.LatLng(p.y, p.x);
+  $("dRoadview").hidden = true; box.hidden = false; box.innerHTML = "";
+  try {
+    detail.mini = new kakao.maps.Map(box, { center: pos, level: 3 });
+    new kakao.maps.Marker({ position: pos, map: detail.mini, image: markerImage("picked") });
+    $("dViewTag").textContent = "로드뷰 없음 · 지도"; $("dViewTag").hidden = false;
+  } catch (e) { console.warn("[점메추] mini map", e); $("dViewTag").hidden = true; }
+}
+function showRoadview(p) {
+  const box = $("dRoadview"), req = ++detail.req;
+  const pos = new kakao.maps.LatLng(p.y, p.x);
+  $("dViewTag").hidden = true;
+  $("dStatic").hidden = true; box.hidden = false;
+  try {
+    if (!detail.rvClient) detail.rvClient = new kakao.maps.RoadviewClient();
+    detail.rvClient.getNearestPanoId(pos, 150, panoId => {
+      if (req !== detail.req) return;                      // superseded by a newer request
+      if (panoId === null) { console.info("[점메추] no panorama near", p.place_name); showMiniMap(p); return; }
+      // Build a fresh Roadview each time: it measures its container on creation, so a stale instance
+      // created at a different size (or while hidden) renders as a frozen preview image.
+      try {
+        box.innerHTML = "";
+        detail.rv = new kakao.maps.Roadview(box, { panoId });
+        kakao.maps.event.addListener(detail.rv, "init", () => {
+          if (req !== detail.req) return;
+          const here = detail.rv.getPosition();
+          detail.rv.setViewpoint({ pan: bearing({ lat: here.getLat(), lng: here.getLng() }, { lat: +p.y, lng: +p.x }), tilt: 0, zoom: 0 });
+          $("dViewTag").textContent = "로드뷰 · 드래그해서 둘러보기"; $("dViewTag").hidden = false;
+        });
+      } catch (e) { console.warn("[점메추] roadview", e); showMiniMap(p); }
+    });
+  } catch (e) { console.warn("[점메추] roadview", e); showMiniMap(p); }
+}
+function relayoutDetailView() {
+  if (!detail.place) return;
+  if (detail.rv && !$("dRoadview").hidden) detail.rv.relayout();
+  if (detail.mini && !$("dStatic").hidden) { const c = detail.mini.getCenter(); detail.mini.relayout(); detail.mini.setCenter(c); }
+}
+// re-measure the view after the panel is resized (handle drag end, sheet snap, window resize) — not continuously
+let rvRelayoutT = null;
+new ResizeObserver(() => { clearTimeout(rvRelayoutT); rvRelayoutT = setTimeout(relayoutDetailView, 150); }).observe($("detail"));
+$("dClose").onclick = closeDetail;
+document.querySelectorAll(".detail .tabs [role=tab]").forEach(b => b.onclick = () => setDetailTab(b.dataset.tab));
+$("dPick").onclick = () => { if (detail.place) showPicked(detail.place); };
+document.addEventListener("keydown", e => { if (e.key === "Escape" && !$("detail").hidden) closeDetail(); });
+
+/* ---------- Drag handles (resize panes) ---------- */
+const root = document.documentElement;
+const splitPrefs = (() => { try { return JSON.parse(localStorage.getItem("jmc-split") || "{}"); } catch { return {}; } })();
+function saveSplitPrefs() { try { localStorage.setItem("jmc-split", JSON.stringify(splitPrefs)); } catch {} }
+function setMapH(px) {
+  // On the desktop grid the map spans the brand row + the --map-h row → --map-h = actual height minus brand height
+  const total = document.querySelector(".app").clientHeight, brandH = $("brand").offsetHeight;
+  const v = Math.max(140, Math.min(total - brandH - 160, px - brandH));
+  root.style.setProperty("--map-h", v + "px"); splitPrefs.mapH = v; saveSplitPrefs();
+}
+function setDetailW(px) {
+  const v = Math.max(280, Math.min(window.innerWidth * 0.6, px));
+  root.style.setProperty("--detail-w", v + "px"); splitPrefs.detailW = v; saveSplitPrefs();
+}
+if (splitPrefs.mapH) root.style.setProperty("--map-h", splitPrefs.mapH + "px");
+if (splitPrefs.detailW) root.style.setProperty("--detail-w", splitPrefs.detailW + "px");
+
+function makeDraggable(handle, { axis, get, set, reset, step, invert = false }) {
+  handle.addEventListener("pointerdown", e => {
+    if (e.button !== 0) return;
+    e.preventDefault();
+    const start = axis === "y" ? e.clientY : e.clientX, base = get();
+    handle.setPointerCapture(e.pointerId);
+    handle.classList.add("dragging"); document.body.classList.add("resizing");
+    document.body.style.cursor = axis === "y" ? "row-resize" : "col-resize";
+    const move = ev => set(base + (invert ? -1 : 1) * ((axis === "y" ? ev.clientY : ev.clientX) - start));
+    const up = () => {
+      handle.removeEventListener("pointermove", move);
+      handle.classList.remove("dragging"); document.body.classList.remove("resizing"); document.body.style.cursor = "";
+    };
+    handle.addEventListener("pointermove", move);
+    handle.addEventListener("pointerup", up, { once: true });
+    handle.addEventListener("pointercancel", up, { once: true });
+  });
+  handle.addEventListener("dblclick", reset);
+  handle.addEventListener("keydown", e => {
+    const k = e.key;
+    if (axis === "y" && (k === "ArrowUp" || k === "ArrowDown")) { e.preventDefault(); set(get() + (k === "ArrowDown" ? step : -step)); }
+    if (axis === "x" && (k === "ArrowLeft" || k === "ArrowRight")) { e.preventDefault(); set(get() + (k === "ArrowRight" ? step : -step) * (invert ? -1 : 1)); }
+    if (k === "Home" || k === "Enter") { e.preventDefault(); reset(); }
+  });
+}
+makeDraggable($("splitH"), {
+  axis: "y", step: 24,
+  get: () => $("map").getBoundingClientRect().height,
+  set: setMapH,
+  reset: () => { root.style.removeProperty("--map-h"); delete splitPrefs.mapH; saveSplitPrefs(); },
+});
+makeDraggable($("splitV"), {
+  axis: "x", step: 24,
+  get: () => $("detail").getBoundingClientRect().width,
+  set: setDetailW, invert: true, // the handle sits on the panel's left edge, so dragging right narrows it
+  reset: () => { root.style.removeProperty("--detail-w"); delete splitPrefs.detailW; saveSplitPrefs(); },
+});
+
+/* ---------- Pick: slot-machine reel ---------- */
+const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
+const REEL_ITEMS = 26;         // number of names that scroll past
+const REEL_MS = 3000;          // spin duration
+let rolling = false;
+let reelRaf = null;
+
+function setReel(names) {
+  $("reelStrip").innerHTML = names.map(n => `<div class="reel-item"><span>${esc(n)}</span></div>`).join("");
+  $("reelStrip").style.transform = "";
+}
+function fillTicketMeta(w) {
+  $("tMeta").innerHTML = `<span>${esc(shortCat(w.category_name))}</span><span>${fmtDist(w.distance)}</span><span>${esc(travelLabel(w.distance))}</span>`;
+}
+function fillTicket(winner) {
+  state.picked = winner;
+  fillTicketMeta(winner);
+  $("tLink").href = winner.place_url;
+  // recent + today's history
+  state.recent = [winner.id, ...state.recent.filter(id => id !== winner.id)].slice(0, 3);
+  state.history = [{ id: winner.id, place_name: winner.place_name, category_name: winner.category_name, distance: winner.distance, place_url: winner.place_url, x: winner.x, y: winner.y, road_address_name: winner.road_address_name, address_name: winner.address_name, phone: winner.phone },
+    ...state.history.filter(h => h.id !== winner.id)].slice(0, 8);
+  saveToday(); renderHistory(); refreshMarkerStyles();
+  // Desktop: pan the map and open the detail panel / Mobile: only pan so the ticket stays visible (detail opens via the "view detail" button)
+  focusPlace(winner, false, !isMobile());
+}
+function setTicketState(st) { $("ticket").dataset.state = st; }
+function showPicked(winner) {
+  if (reelRaf) cancelAnimationFrame(reelRaf); reelRaf = null;
+  rolling = false;
+  setTicketState("done");
+  $("tName").classList.remove("spinning", "landed");
+  setReel([winner.place_name]);
+  fillTicket(winner);
+  setTicketBusy(false);
+}
+function setTicketBusy(v) { ["tReroll", "tSkip", "pick"].forEach(id => $(id).disabled = v); }
+
+function pick(excludeId) {
+  let pool = state.places.filter(p => p.id !== excludeId);
+  if (!pool.length || rolling) return;
+  // avoid the last few picks when there are enough alternatives
+  const fresh = pool.filter(p => !state.recent.includes(p.id));
+  if (fresh.length) pool = fresh;
+  const winner = pool[Math.floor(Math.random() * pool.length)];
+  if (isMobile()) { setSheetTab("results"); if (sheet.snap === "peek") snapSheet("half"); }
+  $("ticket").scrollIntoView({ block: "nearest", behavior: reduceMotion ? "auto" : "smooth" });
+  if (reduceMotion || pool.length < 3) { showPicked(winner); return; }
+
+  // Reel layout: winner on top, random names below. Start showing the bottom and move up (text flows downward) until it stops on the winner
+  const others = pool.filter(p => p.id !== winner.id);
+  const names = [winner.place_name];
+  let prev = winner.place_name;
+  for (let i = 0; i < REEL_ITEMS; i++) {
+    let cand; do { cand = others[Math.floor(Math.random() * others.length)].place_name; } while (cand === prev && others.length > 1);
+    names.push(cand); prev = cand;
+  }
+  rolling = true; setTicketBusy(true);
+  setTicketState("rolling");
+  $("tMeta").innerHTML = `<span>돌아가는 중…</span>`;
+  const reel = $("tName"), strip = $("reelStrip");
+  reel.classList.remove("landed"); reel.classList.add("spinning");
+  setReel(names);
+
+  const itemH = strip.firstElementChild.getBoundingClientRect().height;
+  const startY = -(names.length - 1) * itemH;   // position where the last name is visible
+  const endY = 0;                                // position where the winner (first line) is visible
+  strip.style.transform = `translateY(${startY}px)`;
+
+  const easeOut = t => 1 - Math.pow(1 - t, 3.2);
+  const t0 = performance.now(); let lastY = startY;
+  const frame = now => {
+    const t = Math.min(1, (now - t0) / REEL_MS);
+    const y = startY + (endY - startY) * easeOut(t);
+    const speed = Math.abs(y - lastY); lastY = y;
+    strip.style.transform = `translateY(${y}px)`;
+    strip.style.filter = speed > 6 ? `blur(${Math.min(5, (speed - 6) / 10)}px)` : "";
+    if (t < 1) { reelRaf = requestAnimationFrame(frame); return; }
+    strip.style.filter = "";
+    reel.classList.remove("spinning"); reel.classList.add("landed");
+    reelRaf = null; rolling = false;
+    setTicketState("done");
+    fillTicket(winner); setTicketBusy(false);
+  };
+  reelRaf = requestAnimationFrame(frame);
+}
+$("pick").onclick = () => pick();
+$("tDetail").onclick = () => { if (state.picked && !rolling) openDetail(state.picked); };
+$("tReroll").onclick = () => pick(state.picked?.id);
+$("tSkip").onclick = () => {
+  if (!state.picked) return;
+  skipPlace(state.picked.place_name); pick();
+};
+$("tShare").onclick = () => sharePicked();
+
+/* ---------- Today's pick history ---------- */
+function renderHistory() {
+  const box = $("history"), chips = $("historyChips");
+  box.hidden = !state.history.length;
+  chips.innerHTML = "";
+  state.history.forEach(h => {
+    const b = document.createElement("button");
+    b.type = "button"; b.className = "chip hist" + (state.picked && state.picked.id === h.id ? " cur" : "");
+    b.textContent = h.place_name; b.title = "다시 이 가게로";
+    b.onclick = () => { state.skips.delete(h.place_name); renderTokens(); applyFilter(); const live = state.all?.find(p => p.id === h.id) || h; showPicked(live); };
+    chips.appendChild(b);
+  });
+}
+
+/* ---------- Share ---------- */
+function toast(msg) { const t = $("toast"); t.textContent = msg; t.classList.add("show"); clearTimeout(toast.t); toast.t = setTimeout(() => t.classList.remove("show"), 1800); }
+async function sharePicked() {
+  const w = state.picked; if (!w) return;
+  const text = `오늘 점심은 ${w.place_name} 🎉\n${shortCat(w.category_name)} · ${fmtDist(w.distance)} · ${travelLabel(w.distance)}\n${w.place_url}`;
+  try {
+    if (navigator.share) { await navigator.share({ title: `오늘 점심: ${w.place_name}`, text, url: w.place_url }); return; }
+    await navigator.clipboard.writeText(text); toast("복사했어요");
+  } catch (e) { if (e && e.name !== "AbortError") toast("공유할 수 없어요"); }
+}
+
+
+/* ---------- PWA ---------- */
+if ("serviceWorker" in navigator && location.protocol !== "file:") {
+  window.addEventListener("load", () => navigator.serviceWorker.register("./sw.js").catch(() => {}));
+}
+
+/* ---------- Startup ---------- */
+loadPersisted();
+renderTokens(); updateRadiusHint(); renderHistory();
+if (isMobile()) setSheetTab("settings", { expand: false });
+loadSdk(KAKAO_JS_KEY);
+</script>
+</body>
+</html>
