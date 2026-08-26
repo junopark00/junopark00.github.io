@@ -1262,26 +1262,32 @@ function naverListUrl(p) { return `https://m.place.naver.com/place/list?query=${
 async function loadNaver(p, req) {
   const frame = $("dNaver"), hint = $("dHint");
   const cached = detail.naverIds[p.id];
-  const showList = () => { frame.src = naverListUrl(p); hint.textContent = "지도의 핀이나 「목록보기」를 누르면 영업시간·리뷰·메뉴가 보여요."; hint.hidden = false; };
+  const showList = (why) => {
+    frame.src = naverListUrl(p);
+    const note = { "no-result": "네이버에서 같은 이름을 못 찾았어요. ", "too-far": "이름이 같은 다른 지점만 있어요. ", captcha: "네이버가 잠시 자동 조회를 막았어요. ", network: "응답이 늦어요. " }[why] || "";
+    hint.textContent = note + "지도의 핀이나 「목록보기」를 누르면 상세가 보여요."; hint.hidden = false;
+  };
   const showPlace = ({ id, type }) => { frame.src = `https://m.place.naver.com/${type || "restaurant"}/${id}/home`; hint.hidden = true; };
-  if (cached) { cached.id ? showPlace(cached) : showList(); return; }
+  if (cached) { cached.id ? showPlace(cached) : showList(cached.reason); return; }
   if (!NAVER_RESOLVE) { showList(); return; }
   hint.textContent = "네이버에서 가게를 찾는 중…"; hint.hidden = false; frame.src = "about:blank";
-  let info = { id: null };
+  let info = { id: null, reason: "network" };
   try {
-    const ctrl = new AbortController(); const t = setTimeout(() => ctrl.abort(), 6000);
-    const r = await fetch(NAVER_RESOLVE + encodeURIComponent(naverQuery(p)) + `&x=${p.x}&y=${p.y}`, { signal: ctrl.signal });
+    const ctrl = new AbortController(); const t = setTimeout(() => ctrl.abort(), 10000);
+    const r = await fetch(NAVER_RESOLVE + encodeURIComponent(naverQuery(p)) + `&n=${encodeURIComponent(p.place_name)}&x=${p.x}&y=${p.y}`, { signal: ctrl.signal });
     clearTimeout(t);
     if (r.ok) info = await r.json();
   } catch (e) { console.warn("[점메추] naver lookup", e); }
-  detail.naverIds[p.id] = info;
+  console.info("[점메추] naver", p.place_name, "→", info.id ? `id ${info.id} (${info.name})` : `list (${info.reason})`);
+  // remember hits and genuine misses; transient failures (captcha / network) are retried next time
+  if (info.id || info.reason === "no-result" || info.reason === "too-far") detail.naverIds[p.id] = info;
   if (info.hours && (info.hours.status || info.hours.description) && detail.place?.id === p.id) {
     $("dCat").textContent = `${detailCat(p)} · ${[info.hours.status, info.hours.description].filter(Boolean).join(" ")}`;
   }
   if (state.picked?.id === p.id) $("tLink").href = naverMapUrl(p);
   if (detail.place?.id === p.id) $("dOpen").href = naverMapUrl(p);
   if (req !== detail.req || detail.place?.id !== p.id || detail.tab !== "naver") return;   // user moved on
-  info.id ? showPlace(info) : showList();
+  info.id ? showPlace(info) : showList(info.reason);
 }
 function setDetailTab(tab, force = false) {
   if (!force && detail.tab === tab) return;
