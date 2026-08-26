@@ -13,6 +13,7 @@
 <meta property="og:url" content="https://junopark00.github.io/" />
 <meta name="twitter:card" content="summary_large_image" />
 <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-5864541043862729" crossorigin="anonymous"></script>
+<script src="https://t1.kakaocdn.net/kakao_js_sdk/2.7.4/kakao.min.js" crossorigin="anonymous"></script>
 <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
 <meta name="theme-color" content="#151815" media="(prefers-color-scheme: dark)" />
@@ -144,6 +145,38 @@
   .totop.show { opacity: 1; pointer-events: auto; transform: none; }
   .totop .ic { width: 16px; height: 16px; }
   .totop:hover { background: var(--paper-2); }
+
+  /* ---------- Kakao login modal ---------- */
+  .modal { position: fixed; inset: 0; z-index: 200; background: rgba(0, 0, 0, .55); display: flex; align-items: center; justify-content: center; padding: 24px; }
+  .modal-card {
+    background: var(--paper); border: 1px solid var(--line); border-radius: 8px;
+    padding: 28px 26px 20px; max-width: 340px; width: 100%; text-align: center;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, .35);
+  }
+  .modal-card .stars-demo { color: var(--yellow); font-size: 26px; letter-spacing: 4px; margin-bottom: 10px; }
+  .modal-card h2 { font-size: 19px; font-weight: 800; margin: 0 0 8px; letter-spacing: -.01em; }
+  .modal-card p { font-size: 13px; color: var(--ink-2); margin: 0 0 18px; line-height: 1.5; }
+  .kakao-btn {
+    display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%;
+    padding: 12px; border: 0; border-radius: 6px; background: #FEE500; color: #191919;
+    font: inherit; font-size: 15px; font-weight: 700; cursor: pointer;
+  }
+  .kakao-btn:hover { filter: brightness(.96); }
+  .kakao-btn .ksym { width: 18px; height: 18px; flex: none; }
+  .modal-card .linkbtn { margin-top: 14px; }
+
+  /* ---------- Star ratings on cards ---------- */
+  .card .stars { grid-column: 1 / -1; display: flex; align-items: center; gap: 1px; margin-top: 2px; }
+  .card .stars .star { border: 0; background: none; padding: 2px; cursor: pointer; color: var(--line); display: inline-flex; }
+  .card .stars .star .ic { width: 15px; height: 15px; fill: currentColor; stroke: currentColor; }
+  .card .stars .star.on { color: var(--yellow); }
+  .card .stars .rc { font-size: 11.5px; color: var(--ink-2); margin-left: 6px; }
+  .stars-locked { border: 0; background: none; padding: 0; font-size: 11.5px; color: var(--ink-2); cursor: pointer; font-family: inherit; }
+  .stars-locked:hover { color: var(--ink); }
+
+  /* ---------- Sort selector above the list ---------- */
+  .list-tools { display: flex; justify-content: flex-end; margin-bottom: 8px; }
+  .list-tools select { width: auto; padding: 6px 10px; font-size: 12.5px; border-radius: 3px; }
   .row > * { min-width: 0; }
 
   /* ---------- Drag handles (resize panes) ---------- */
@@ -567,7 +600,7 @@
 </style>
 </head>
 <body>
-<svg xmlns="http://www.w3.org/2000/svg" style="display:none" aria-hidden="true"><symbol id="i-ban" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" /> <path d="M4.929 4.929 19.07 19.071" /></symbol><symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" /> <path d="M12 6v6l4 2" /></symbol><symbol id="i-crosshair" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" /> <line x1="22" x2="18" y1="12" y2="12" /> <line x1="6" x2="2" y1="12" y2="12" /> <line x1="12" x2="12" y1="6" y2="2" /> <line x1="12" x2="12" y1="22" y2="18" /></symbol><symbol id="i-dices" viewBox="0 0 24 24"><rect width="12" height="12" x="2" y="10" rx="2" ry="2" /> <path d="m17.92 14 3.5-3.5a2.24 2.24 0 0 0 0-3l-5-4.92a2.24 2.24 0 0 0-3 0L10 6" /> <path d="M6 18h.01" /> <path d="M10 14h.01" /> <path d="M15 6h.01" /> <path d="M18 9h.01" /></symbol><symbol id="i-footprints" viewBox="0 0 24 24"><path d="M4 16v-2.38C4 11.5 2.97 10.5 3 8c.03-2.72 1.49-6 4.5-6C9.37 2 10 3.8 10 5.5c0 3.11-2 5.66-2 8.68V16a2 2 0 1 1-4 0Z" /> <path d="M20 20v-2.38c0-2.12 1.03-3.12 1-5.62-.03-2.72-1.49-6-4.5-6C14.63 6 14 7.8 14 9.5c0 3.11 2 5.66 2 8.68V20a2 2 0 1 0 4 0Z" /> <path d="M16 17h4" /> <path d="M4 13h4" /></symbol><symbol id="i-history" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" /> <path d="M12 6v6h4" /></symbol><symbol id="i-list" viewBox="0 0 24 24"><path d="M3 5h.01" /> <path d="M3 12h.01" /> <path d="M3 19h.01" /> <path d="M8 5h13" /> <path d="M8 12h13" /> <path d="M8 19h13" /></symbol><symbol id="i-locate" viewBox="0 0 24 24"><line x1="2" x2="5" y1="12" y2="12" /> <line x1="19" x2="22" y1="12" y2="12" /> <line x1="12" x2="12" y1="2" y2="5" /> <line x1="12" x2="12" y1="19" y2="22" /> <circle cx="12" cy="12" r="7" /></symbol><symbol id="i-map-pin" viewBox="0 0 24 24"><path d="M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0" /> <circle cx="12" cy="10" r="3" /></symbol><symbol id="i-navigation" viewBox="0 0 24 24"><polygon points="3 11 22 2 13 21 11 13 3 11" /></symbol><symbol id="i-plus" viewBox="0 0 24 24"><path d="M5 12h14" /> <path d="M12 5v14" /></symbol><symbol id="i-refresh-cw" viewBox="0 0 24 24"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8" /> <path d="M21 3v5h-5" /> <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16" /> <path d="M8 16H3v5" /></symbol><symbol id="i-rotate-ccw" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" /> <path d="M3 3v5h5" /></symbol><symbol id="i-search-x" viewBox="0 0 24 24"><path d="m13.5 8.5-5 5" /> <path d="m8.5 8.5 5 5" /> <circle cx="11" cy="11" r="8" /> <path d="m21 21-4.3-4.3" /></symbol><symbol id="i-search" viewBox="0 0 24 24"><path d="m21 21-4.34-4.34" /> <circle cx="11" cy="11" r="8" /></symbol><symbol id="i-share-2" viewBox="0 0 24 24"><circle cx="18" cy="5" r="3" /> <circle cx="6" cy="12" r="3" /> <circle cx="18" cy="19" r="3" /> <line x1="8.59" x2="15.42" y1="13.51" y2="17.49" /> <line x1="15.41" x2="8.59" y1="6.51" y2="10.49" /></symbol><symbol id="i-sliders-horizontal" viewBox="0 0 24 24"><path d="M10 5H3" /> <path d="M12 19H3" /> <path d="M14 3v4" /> <path d="M16 17v4" /> <path d="M21 12h-9" /> <path d="M21 19h-5" /> <path d="M21 5h-7" /> <path d="M8 10v4" /> <path d="M8 12H3" /></symbol><symbol id="i-store" viewBox="0 0 24 24"><path d="M15 21v-5a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v5" /> <path d="M17.774 10.31a1.12 1.12 0 0 0-1.549 0 2.5 2.5 0 0 1-3.451 0 1.12 1.12 0 0 0-1.548 0 2.5 2.5 0 0 1-3.452 0 1.12 1.12 0 0 0-1.549 0 2.5 2.5 0 0 1-3.77-3.248l2.889-4.184A2 2 0 0 1 7 2h10a2 2 0 0 1 1.653.873l2.895 4.192a2.5 2.5 0 0 1-3.774 3.244" /> <path d="M4 10.95V19a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8.05" /></symbol><symbol id="i-thumbs-down" viewBox="0 0 24 24"><path d="M9 18.12 10 14H4.17a2 2 0 0 1-1.92-2.56l2.33-8A2 2 0 0 1 6.5 2H20a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-2.76a2 2 0 0 0-1.79 1.11L12 22a3.13 3.13 0 0 1-3-3.88Z" /> <path d="M17 14V2" /></symbol><symbol id="i-thumbs-up" viewBox="0 0 24 24"><path d="M15 5.88 14 10h5.83a2 2 0 0 1 1.92 2.56l-2.33 8A2 2 0 0 1 17.5 22H4a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2h2.76a2 2 0 0 0 1.79-1.11L12 2a3.13 3.13 0 0 1 3 3.88Z" /> <path d="M7 10v12" /></symbol><symbol id="i-utensils-crossed" viewBox="0 0 24 24"><path d="m16 2-2.3 2.3a3 3 0 0 0 0 4.2l1.8 1.8a3 3 0 0 0 4.2 0L22 8" /> <path d="M15 15 3.3 3.3a4.2 4.2 0 0 0 0 6l7.3 7.3c.7.7 2 .7 2.8 0L15 15Zm0 0 7 7" /> <path d="m2.1 21.8 6.4-6.3" /> <path d="m19 5-7 7" /></symbol><symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6 6 18" /> <path d="m6 6 12 12" /></symbol></svg>
+<svg xmlns="http://www.w3.org/2000/svg" style="display:none" aria-hidden="true"><symbol id="i-ban" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" /> <path d="M4.929 4.929 19.07 19.071" /></symbol><symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" /> <path d="M12 6v6l4 2" /></symbol><symbol id="i-crosshair" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" /> <line x1="22" x2="18" y1="12" y2="12" /> <line x1="6" x2="2" y1="12" y2="12" /> <line x1="12" x2="12" y1="6" y2="2" /> <line x1="12" x2="12" y1="22" y2="18" /></symbol><symbol id="i-dices" viewBox="0 0 24 24"><rect width="12" height="12" x="2" y="10" rx="2" ry="2" /> <path d="m17.92 14 3.5-3.5a2.24 2.24 0 0 0 0-3l-5-4.92a2.24 2.24 0 0 0-3 0L10 6" /> <path d="M6 18h.01" /> <path d="M10 14h.01" /> <path d="M15 6h.01" /> <path d="M18 9h.01" /></symbol><symbol id="i-footprints" viewBox="0 0 24 24"><path d="M4 16v-2.38C4 11.5 2.97 10.5 3 8c.03-2.72 1.49-6 4.5-6C9.37 2 10 3.8 10 5.5c0 3.11-2 5.66-2 8.68V16a2 2 0 1 1-4 0Z" /> <path d="M20 20v-2.38c0-2.12 1.03-3.12 1-5.62-.03-2.72-1.49-6-4.5-6C14.63 6 14 7.8 14 9.5c0 3.11 2 5.66 2 8.68V20a2 2 0 1 0 4 0Z" /> <path d="M16 17h4" /> <path d="M4 13h4" /></symbol><symbol id="i-history" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" /> <path d="M12 6v6h4" /></symbol><symbol id="i-list" viewBox="0 0 24 24"><path d="M3 5h.01" /> <path d="M3 12h.01" /> <path d="M3 19h.01" /> <path d="M8 5h13" /> <path d="M8 12h13" /> <path d="M8 19h13" /></symbol><symbol id="i-locate" viewBox="0 0 24 24"><line x1="2" x2="5" y1="12" y2="12" /> <line x1="19" x2="22" y1="12" y2="12" /> <line x1="12" x2="12" y1="2" y2="5" /> <line x1="12" x2="12" y1="19" y2="22" /> <circle cx="12" cy="12" r="7" /></symbol><symbol id="i-map-pin" viewBox="0 0 24 24"><path d="M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0" /> <circle cx="12" cy="10" r="3" /></symbol><symbol id="i-navigation" viewBox="0 0 24 24"><polygon points="3 11 22 2 13 21 11 13 3 11" /></symbol><symbol id="i-plus" viewBox="0 0 24 24"><path d="M5 12h14" /> <path d="M12 5v14" /></symbol><symbol id="i-refresh-cw" viewBox="0 0 24 24"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8" /> <path d="M21 3v5h-5" /> <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16" /> <path d="M8 16H3v5" /></symbol><symbol id="i-rotate-ccw" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" /> <path d="M3 3v5h5" /></symbol><symbol id="i-search-x" viewBox="0 0 24 24"><path d="m13.5 8.5-5 5" /> <path d="m8.5 8.5 5 5" /> <circle cx="11" cy="11" r="8" /> <path d="m21 21-4.3-4.3" /></symbol><symbol id="i-search" viewBox="0 0 24 24"><path d="m21 21-4.34-4.34" /> <circle cx="11" cy="11" r="8" /></symbol><symbol id="i-share-2" viewBox="0 0 24 24"><circle cx="18" cy="5" r="3" /> <circle cx="6" cy="12" r="3" /> <circle cx="18" cy="19" r="3" /> <line x1="8.59" x2="15.42" y1="13.51" y2="17.49" /> <line x1="15.41" x2="8.59" y1="6.51" y2="10.49" /></symbol><symbol id="i-sliders-horizontal" viewBox="0 0 24 24"><path d="M10 5H3" /> <path d="M12 19H3" /> <path d="M14 3v4" /> <path d="M16 17v4" /> <path d="M21 12h-9" /> <path d="M21 19h-5" /> <path d="M21 5h-7" /> <path d="M8 10v4" /> <path d="M8 12H3" /></symbol><symbol id="i-store" viewBox="0 0 24 24"><path d="M15 21v-5a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v5" /> <path d="M17.774 10.31a1.12 1.12 0 0 0-1.549 0 2.5 2.5 0 0 1-3.451 0 1.12 1.12 0 0 0-1.548 0 2.5 2.5 0 0 1-3.452 0 1.12 1.12 0 0 0-1.549 0 2.5 2.5 0 0 1-3.77-3.248l2.889-4.184A2 2 0 0 1 7 2h10a2 2 0 0 1 1.653.873l2.895 4.192a2.5 2.5 0 0 1-3.774 3.244" /> <path d="M4 10.95V19a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8.05" /></symbol><symbol id="i-thumbs-down" viewBox="0 0 24 24"><path d="M9 18.12 10 14H4.17a2 2 0 0 1-1.92-2.56l2.33-8A2 2 0 0 1 6.5 2H20a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-2.76a2 2 0 0 0-1.79 1.11L12 22a3.13 3.13 0 0 1-3-3.88Z" /> <path d="M17 14V2" /></symbol><symbol id="i-thumbs-up" viewBox="0 0 24 24"><path d="M15 5.88 14 10h5.83a2 2 0 0 1 1.92 2.56l-2.33 8A2 2 0 0 1 17.5 22H4a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2h2.76a2 2 0 0 0 1.79-1.11L12 2a3.13 3.13 0 0 1 3 3.88Z" /> <path d="M7 10v12" /></symbol><symbol id="i-utensils-crossed" viewBox="0 0 24 24"><path d="m16 2-2.3 2.3a3 3 0 0 0 0 4.2l1.8 1.8a3 3 0 0 0 4.2 0L22 8" /> <path d="M15 15 3.3 3.3a4.2 4.2 0 0 0 0 6l7.3 7.3c.7.7 2 .7 2.8 0L15 15Zm0 0 7 7" /> <path d="m2.1 21.8 6.4-6.3" /> <path d="m19 5-7 7" /></symbol><symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6 6 18" /> <path d="m6 6 12 12" /></symbol><symbol id="i-star" viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" /></symbol></svg>
 <div class="app">
   <!-- ================= Brand (desktop: top-left / mobile: top bar) ================= -->
   <header class="brand" id="brand">
@@ -663,6 +696,14 @@
         <div class="chips" id="historyChips"></div>
       </div>
 
+      <div class="list-tools" id="listTools" hidden>
+        <select id="sortSel" aria-label="정렬 기준">
+          <option value="dist-asc">가까운 순</option>
+          <option value="dist-desc">먼 순</option>
+          <option value="rate-desc">별점 높은 순</option>
+          <option value="rate-asc">별점 낮은 순</option>
+        </select>
+      </div>
       <div class="list" id="list"></div>
       <div class="empty" id="empty">
         <svg class="ic" aria-hidden="true"><use href="#i-search-x"/></svg><b>아직 결과가 없어요</b>
@@ -676,6 +717,20 @@
   </div>
 </div>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<!-- Kakao-login nudge: ratings are visible and writable only for logged-in users -->
+<div class="modal" id="loginModal" hidden>
+  <div class="modal-card">
+    <div class="stars-demo" aria-hidden="true">★★★★★</div>
+    <h2>가게 별점이 궁금하다면</h2>
+    <p>카카오 로그인하면 다른 사람들이 남긴 별점을 확인하고,<br />직접 별점을 매길 수 있어요.</p>
+    <button type="button" class="kakao-btn" id="kakaoLoginBtn">
+      <svg viewBox="0 0 24 24" class="ksym" aria-hidden="true"><path fill="#191919" d="M12 3C6.48 3 2 6.54 2 10.9c0 2.8 1.86 5.25 4.64 6.65-.2.75-.75 2.8-.86 3.24-.13.54.2.53.42.39.17-.11 2.72-1.85 3.83-2.6.63.09 1.29.14 1.97.14 5.52 0 10-3.54 10-7.9S17.52 3 12 3z"/></svg>
+      카카오 로그인
+    </button>
+    <button type="button" class="linkbtn" id="skipLoginBtn">그냥 볼래요</button>
+  </div>
+</div>
 
 <script>
 /* ============================================================
@@ -717,7 +772,7 @@ const todayStr = () => { const d = new Date(); return `${d.getFullYear()}-${d.ge
 function loadJSON(k, d) { try { return JSON.parse(localStorage.getItem(k)) ?? d; } catch { return d; } }
 function saveJSON(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} }
 function savePrefs() {
-  saveJSON(PREFS_KEY, { genres: [...state.genres], excludes: [...state.excludes], minutes: $("minutes").value });
+  saveJSON(PREFS_KEY, { genres: [...state.genres], excludes: [...state.excludes], minutes: $("minutes").value, sort: $("sortSel").value });
 }
 function saveToday() { saveJSON(TODAY_KEY, { date: todayStr(), skips: [...state.skips], history: state.history, recent: state.recent }); }
 function loadPersisted() {
@@ -726,6 +781,7 @@ function loadPersisted() {
     if (Array.isArray(pr.genres)) state.genres = new Set(pr.genres);
     if (Array.isArray(pr.excludes)) state.excludes = new Set(pr.excludes);
     if (pr.minutes >= 1) $("minutes").value = clampMinutes(pr.minutes);
+    if (pr.sort && [...$("sortSel").options].some(o => o.value === pr.sort)) $("sortSel").value = pr.sort;
   }
   const td = loadJSON(TODAY_KEY, null);
   if (td && td.date === todayStr()) {
@@ -1172,6 +1228,7 @@ $("search").onclick = async () => {
       .sort((a, b) => a.distance - b.distance);
     state.picked = null; setTicketState("idle"); setReel(["—"]);
     applyFilter(true);
+    fetchRatings();   // async; re-renders with stars when the counts arrive
     searchDirty = false;
     if (!state.all.length) setStatus("결과가 없어요. 반경을 넓히거나 기준 위치를 확인하세요.", true);
     if (isMobile() && state.all.length) setSheetTab("results", { snap: "full" });   // pull the sheet up so the list is easy to browse
@@ -1197,6 +1254,8 @@ function isExcluded(p) {
 function applyFilter(fitBounds = false) {
   if (!state.all) return;
   state.places = state.all.filter(p => !isExcluded(p));
+  sortPlaces();
+  $("listTools").hidden = !state.places.length;
   renderList(); renderMarkers(fitBounds); renderHistory();
   $("ticket").hidden = false;
   // If the picked place gets filtered out, reset the ticket
@@ -1235,14 +1294,23 @@ function renderList() {
       <div class="dist">${fmtDist(p.distance)}</div>
       <div class="c">${esc(shortCat(p.category_name))}</div>
       <div class="a">${esc(p.road_address_name || p.address_name || "")}${p.phone ? " · " + esc(p.phone) : ""}</div>
+      ${isLoggedIn()
+        ? `<div class="stars" title="별점 남기기">${[1, 2, 3, 4, 5].map(i =>
+            `<button type="button" class="star${p.rating && Math.round(p.rating.avg) >= i ? " on" : ""}" data-star="${i}" aria-label="${i}점 주기">${ICON("star")}</button>`).join("")}
+           <span class="rc">${p.rating && p.rating.count
+             ? `${p.rating.avg.toFixed(1)} (${p.rating.count})${p.rating.mine ? ` · 내 별점 ${p.rating.mine}점` : ""}`
+             : "첫 별점을 남겨보세요"}</span></div>`
+        : `<div class="stars"><button type="button" class="stars-locked" data-login>★ 로그인하고 별점 보기</button></div>`}
       <div class="links">
         <a href="${p.place_url}" target="_blank" rel="noopener">${ICON("store")}가게 정보</a>
         <a href="${routeUrl(p)}" target="_blank" rel="noopener">${ICON("navigation")}길찾기</a>
         <button type="button" data-skip="${esc(p.place_name)}">${ICON("ban")}오늘은 빼기</button>
       </div>`;
     c.onclick = e => { if (e.target.closest("a,button")) return; focusPlace(p); };
-    c.onkeydown = e => { if (e.key === "Enter") focusPlace(p); };
+    c.onkeydown = e => { if (e.key === "Enter" && e.target === c) focusPlace(p); };
     c.querySelector("[data-skip]").onclick = () => skipPlace(p.place_name);
+    c.querySelectorAll("[data-star]").forEach(b => b.onclick = () => ratePlace(p, +b.dataset.star));
+    const lock = c.querySelector("[data-login]"); if (lock) lock.onclick = showLoginModal;
     list.appendChild(c);
   });
 }
@@ -1580,6 +1648,95 @@ function renderHistory() {
   });
 }
 
+/* ---------- Kakao login & star ratings ----------
+   Ratings are stored per Kakao user in Worker KV; they are visible and writable
+   only while logged in. Token exchange happens in the worker (REST key stays server-side). */
+const WORKER_BASE = SEARCH_PROXY.replace(/\/$/, "").replace(/\/search$/, "");
+const REDIRECT_URI = location.origin + location.pathname;
+const AUTH_KEY = "jmc-auth", NUDGE_KEY = "jmc-login-nudge";
+function authData() { return loadJSON(AUTH_KEY, null); }
+function isLoggedIn() { const a = authData(); return !!(a && a.access && Date.now() < a.exp); }
+function saveAuth(t) {
+  saveJSON(AUTH_KEY, { access: t.access_token, refresh: t.refresh_token || (authData() || {}).refresh,
+    exp: Date.now() + Math.max(60, (t.expires_in || 21600) - 60) * 1000 });
+}
+function kakaoLogin() {
+  if (!window.Kakao) { setStatus("카카오 로그인 SDK를 불러오지 못했어요.", true); return; }
+  if (!Kakao.isInitialized()) Kakao.init(KAKAO_JS_KEY);
+  Kakao.Auth.authorize({ redirectUri: REDIRECT_URI });
+}
+async function refreshAuth() {
+  const a = authData();
+  if (!a || !a.refresh) return false;
+  try {
+    const r = await fetch(WORKER_BASE + "/auth/token", { method: "POST",
+      headers: { "Content-Type": "application/json" }, body: JSON.stringify({ refresh_token: a.refresh }) });
+    if (!r.ok) return false;
+    saveAuth(await r.json()); return true;
+  } catch { return false; }
+}
+async function authFetch(url, opts = {}) {
+  const call = () => fetch(url, { ...opts, headers: { ...(opts.headers || {}), Authorization: "Bearer " + (authData() || {}).access } });
+  let res = await call();
+  if (res.status === 401 && await refreshAuth()) res = await call();
+  if (res.status === 401) localStorage.removeItem(AUTH_KEY);   // session truly over → back to logged-out UI
+  return res;
+}
+async function handleAuthRedirect() {
+  const code = new URLSearchParams(location.search).get("code");
+  if (!code) return;
+  history.replaceState(null, "", location.pathname);
+  try {
+    const r = await fetch(WORKER_BASE + "/auth/token", { method: "POST",
+      headers: { "Content-Type": "application/json" }, body: JSON.stringify({ code, redirect_uri: REDIRECT_URI }) });
+    if (r.ok) { saveAuth(await r.json()); toast("카카오 로그인 완료!"); applyFilter(); fetchRatings(); }
+    else toast("로그인에 실패했어요");
+  } catch { toast("로그인에 실패했어요"); }
+}
+function showLoginModal() { $("loginModal").hidden = false; }
+$("kakaoLoginBtn").onclick = kakaoLogin;
+$("skipLoginBtn").onclick = () => { $("loginModal").hidden = true; saveJSON(NUDGE_KEY, todayStr()); };
+$("loginModal").addEventListener("click", e => { if (e.target === $("loginModal")) $("skipLoginBtn").click(); });
+function maybeNudgeLogin() {
+  if (!isLoggedIn() && loadJSON(NUDGE_KEY, "") !== todayStr()) showLoginModal();
+}
+
+async function fetchRatings() {
+  if (!isLoggedIn() || !state.all || !state.all.length) return;
+  const byId = Object.fromEntries(state.all.map(p => [p.id, p]));
+  const ids = Object.keys(byId);
+  try {
+    for (let i = 0; i < ids.length; i += 100) {
+      const res = await authFetch(`${WORKER_BASE}/ratings?ids=${ids.slice(i, i + 100).join(",")}`);
+      if (!res.ok) return;
+      Object.entries(await res.json()).forEach(([id, r]) => { if (byId[id]) byId[id].rating = r; });
+    }
+    applyFilter();
+  } catch {}
+}
+async function ratePlace(p, stars) {
+  try {
+    const res = await authFetch(`${WORKER_BASE}/ratings/${p.id}`, { method: "POST",
+      headers: { "Content-Type": "application/json" }, body: JSON.stringify({ stars }) });
+    if (res.ok) { p.rating = await res.json(); toast(`★ ${stars}점을 남겼어요`); applyFilter(); }
+    else if (res.status === 401) showLoginModal();
+    else toast("별점 등록에 실패했어요");
+  } catch { toast("별점 등록에 실패했어요"); }
+}
+function sortPlaces() {
+  const s = $("sortSel").value;
+  state.places.sort({
+    "dist-asc":  (a, b) => a.distance - b.distance,
+    "dist-desc": (a, b) => b.distance - a.distance,
+    "rate-desc": (a, b) => ((b.rating?.avg || 0) - (a.rating?.avg || 0)) || a.distance - b.distance,
+    "rate-asc":  (a, b) => ((a.rating?.avg || 0) - (b.rating?.avg || 0)) || a.distance - b.distance,
+  }[s] || ((a, b) => a.distance - b.distance));
+}
+$("sortSel").addEventListener("change", () => {
+  if ($("sortSel").value.startsWith("rate") && !isLoggedIn()) { $("sortSel").value = "dist-asc"; showLoginModal(); return; }
+  applyFilter(); savePrefs();
+});
+
 /* ---------- Share ---------- */
 function toast(msg) { const t = $("toast"); t.textContent = msg; t.classList.add("show"); clearTimeout(toast.t); toast.t = setTimeout(() => t.classList.remove("show"), 1800); }
 async function sharePicked() {
@@ -1602,6 +1759,8 @@ if ("serviceWorker" in navigator && location.protocol !== "file:") {
 /* ---------- Startup ---------- */
 loadPersisted();
 renderTokens(); updateRadiusHint(); renderHistory();
+if (window.Kakao && !Kakao.isInitialized()) Kakao.init(KAKAO_JS_KEY);
+handleAuthRedirect().then(maybeNudgeLogin);
 if (isMobile()) setSheetTab("settings", { expand: false });
 loadSdk(KAKAO_JS_KEY);
 </script>

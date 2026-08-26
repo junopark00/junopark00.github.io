@@ -1,3 +1,9 @@
 name = "jummechu-api"
 main = "worker.js"
 compatibility_date = "2025-01-01"
+
+# Star-rating storage. Create with: npx wrangler kv namespace create RATINGS
+# then replace the id below with the one from the command output.
+[[kv_namespaces]]
+binding = "RATINGS"
+id = "REPLACE_WITH_NAMESPACE_ID"

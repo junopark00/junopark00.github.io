@@ -16,12 +16,12 @@ export default {
     const origin = req.headers.get("Origin") || "";
     const cors = {
       "Access-Control-Allow-Origin": ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0],
-      "Access-Control-Allow-Methods": "GET, OPTIONS",
-      "Access-Control-Allow-Headers": "Content-Type",
+      "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+      "Access-Control-Allow-Headers": "Content-Type, Authorization",
       "Vary": "Origin",
     };
     if (req.method === "OPTIONS") return new Response(null, { status: 204, headers: cors });
-    if (req.method !== "GET") return new Response("method not allowed", { status: 405, headers: cors });
+    if (req.method !== "GET" && req.method !== "POST") return new Response("method not allowed", { status: 405, headers: cors });
     // Browsers always send Origin on cross-origin fetches — no Origin means curl/bots burning our API quotas
     if (!ALLOWED_ORIGINS.includes(origin)) return new Response("forbidden origin", { status: 403, headers: cors });
 
@@ -59,6 +59,75 @@ export default {
         return new Response(JSON.stringify({ totalTime: p.totalTime ?? null, totalDistance: p.totalDistance ?? null }),
           { status: 200, headers: { ...cors, "Content-Type": "application/json", "Cache-Control": "public, max-age=3600" } });
       }
+      const json = (obj, status = 200, extra = {}) =>
+        new Response(JSON.stringify(obj), { status, headers: { ...cors, "Content-Type": "application/json", ...extra } });
+
+      // --- Kakao Login: exchange the authorization code (or refresh) for tokens.
+      //     client_id must be the REST key, which lives here as a secret. ---
+      if (url.pathname === "/auth/token" && req.method === "POST") {
+        const b = await req.json().catch(() => ({}));
+        const form = b.refresh_token
+          ? { grant_type: "refresh_token", client_id: env.KAKAO_REST_KEY, refresh_token: b.refresh_token }
+          : { grant_type: "authorization_code", client_id: env.KAKAO_REST_KEY, redirect_uri: b.redirect_uri || "", code: b.code || "" };
+        const r = await fetch("https://kauth.kakao.com/oauth/token", {
+          method: "POST",
+          headers: { "Content-Type": "application/x-www-form-urlencoded;charset=utf-8" },
+          body: new URLSearchParams(form),
+        });
+        const body = await r.json().catch(() => ({}));
+        if (!r.ok) return json({ error: body.error_description || body.error || "token error" }, r.status === 400 ? 400 : 502);
+        return json({ access_token: body.access_token, refresh_token: body.refresh_token, expires_in: body.expires_in });
+      }
+
+      // --- Star ratings (login required). One rating per Kakao user per place, updatable. ---
+      // Verify the bearer token against Kakao and cache the user id briefly to spare kapi calls.
+      const verifyUser = async () => {
+        const auth = req.headers.get("Authorization") || "";
+        if (!auth.startsWith("Bearer ") || auth.length < 20) return null;
+        const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(auth));
+        const key = "tok:" + [...new Uint8Array(digest)].map(x => x.toString(16).padStart(2, "0")).join("");
+        const cached = await env.RATINGS.get(key);
+        if (cached) return cached;
+        const r = await fetch("https://kapi.kakao.com/v2/user/me", { headers: { Authorization: auth } });
+        if (!r.ok) return null;
+        const uid = String((await r.json()).id || "");
+        if (!uid) return null;
+        await env.RATINGS.put(key, uid, { expirationTtl: 600 });
+        return uid;
+      };
+      const summarize = (m, uid) => {
+        const vals = Object.values(m);
+        return { avg: vals.length ? Math.round(vals.reduce((a, b) => a + b, 0) / vals.length * 10) / 10 : 0,
+                 count: vals.length, mine: m[uid] || 0 };
+      };
+
+      if (url.pathname === "/ratings" && req.method === "GET") {
+        if (!env.RATINGS) return json({ error: "ratings storage not set" }, 501);
+        const uid = await verifyUser();
+        if (!uid) return json({ error: "unauthorized" }, 401);
+        const ids = (url.searchParams.get("ids") || "").split(",").filter(id => /^\d{1,20}$/.test(id)).slice(0, 120);
+        const out = {};
+        await Promise.all(ids.map(async id => {
+          const m = JSON.parse(await env.RATINGS.get("r:" + id) || "{}");
+          if (Object.keys(m).length || true) out[id] = summarize(m, uid);
+        }));
+        return json(out);
+      }
+
+      const rm = url.pathname.match(/^\/ratings\/(\d{1,20})$/);
+      if (rm && req.method === "POST") {
+        if (!env.RATINGS) return json({ error: "ratings storage not set" }, 501);
+        const uid = await verifyUser();
+        if (!uid) return json({ error: "unauthorized" }, 401);
+        const stars = (await req.json().catch(() => ({}))).stars;
+        if (!Number.isInteger(stars) || stars < 1 || stars > 5) return json({ error: "stars must be 1-5" }, 400);
+        const key = "r:" + rm[1];
+        const m = JSON.parse(await env.RATINGS.get(key) || "{}");
+        m[uid] = stars;
+        await env.RATINGS.put(key, JSON.stringify(m));
+        return json(summarize(m, uid));
+      }
+
       return new Response("not found", { status: 404, headers: cors });
     } catch (e) {
       return new Response("upstream error: " + e.message, { status: 502, headers: cors });
