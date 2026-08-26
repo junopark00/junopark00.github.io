@@ -320,6 +320,8 @@
   .ticket .t-head { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
   .ticket .t-count { font-size: 12.5px; color: rgba(27,31,26,.75); font-family: var(--font-small); }
   .ticket[data-state="idle"] .name, .ticket[data-state="idle"] .meta, .ticket[data-state="idle"] .t-done { display: none; }
+  .ticket .t-note { display: none; font-size: 11px; color: rgba(27, 31, 26, .55); margin-top: 4px; }
+  .ticket[data-state="done"] .t-note { display: block; }
   .ticket[data-state="rolling"] .t-idle, .ticket[data-state="done"] .t-idle { display: none; }
   .ticket[data-state="rolling"] .t-done { pointer-events: none; opacity: .55; }
   .ticket[hidden] { display: none; }
@@ -595,6 +597,7 @@
           <div class="t-head"><span class="eyebrow">오늘의 점심</span><span class="t-count" id="count">먼저 조건으로 찾아보세요</span></div>
           <div class="name reel" id="tName"><div class="reel-strip" id="reelStrip"><div class="reel-item"><span>—</span></div></div></div>
           <div class="meta" id="tMeta"></div>
+          <div class="t-note">도보 시간은 직선거리 기준이라 실제와 다를 수 있어요</div>
         </div>
         <div class="actions t-idle">
           <button class="btn red big" id="pick" type="button" disabled><svg class="ic" aria-hidden="true"><use href="#i-dices"/></svg>뽑기</button>
