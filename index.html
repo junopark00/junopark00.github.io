@@ -271,7 +271,7 @@
     color: var(--ink-2); opacity: .7; text-decoration: none; white-space: nowrap;
   }
   .bmc:hover { opacity: 1; text-decoration: underline; text-underline-offset: 3px; }
-  .auth-line { margin-top: 10px; text-align: center; font-size: 11.5px; color: var(--ink-2); }
+  .auth-line { align-self: center; min-width: 0; text-align: right; font-size: 11.5px; color: var(--ink-2); line-height: 1.4; }
   .auth-line button { border: 0; background: none; padding: 0; font: inherit; color: var(--ink-2); text-decoration: underline; text-underline-offset: 2px; cursor: pointer; }
   .auth-line button:hover { color: var(--ink); }
   .legal { margin-top: 6px; text-align: center; font-size: 10.5px; }
@@ -653,6 +653,7 @@
   <header class="brand" id="brand">
     <div class="brand-row">
       <h1>점메추</h1>
+      <div class="auth-line" id="authLine"></div>
     </div>
     <p>반경 안에서, 먹기 싫은 건 빼고, 하나 골라드림.</p>
   </header>
@@ -714,7 +715,6 @@
       <div class="actions">
         <button class="btn" id="search" disabled><svg class="ic" aria-hidden="true"><use href="#i-search"/></svg><span id="searchLabel">이 조건으로 찾기</span></button>
         <div class="status" id="status" hidden></div>
-        <div class="auth-line" id="authLine"></div>
         <a class="bmc" href="https://buymeacoffee.com/td.junopark" target="_blank" rel="noopener">☕ 개발자에게 커피 한 잔</a>
         <div class="legal"><a href="/privacy.html">개인정보처리방침</a> · <a href="/terms.html">이용약관</a></div>
       </div>
@@ -1766,8 +1766,10 @@ function logout() {
 }
 function updateAuthLine() {
   const a = authData(), el = $("authLine");
+  const who = (a && a.who) || "로그인";
+  const short = who.length > 18 ? who.slice(0, 17) + "…" : who;   // keep the header row on one line
   el.innerHTML = isLoggedIn()
-    ? `${esc(a.who || "로그인")} · <button type="button" id="logoutBtn">로그아웃</button>`
+    ? `${esc(short)} · <button type="button" id="logoutBtn">로그아웃</button>`
     : `<button type="button" id="loginOpenBtn">로그인하고 별점 보기</button>`;
   const lo = document.getElementById("logoutBtn"); if (lo) lo.onclick = logout;
   const li = document.getElementById("loginOpenBtn"); if (li) li.onclick = showLoginModal;
