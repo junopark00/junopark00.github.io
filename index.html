@@ -1315,21 +1315,27 @@ function walkTimeLabel(w) {
 async function fetchWalkTime(w) {
   if (!SEARCH_PROXY || !state.center || realWalkSec(w)) return;
   const from = centerKey();
+  const refresh = () => { if (state.picked && state.picked.id === w.id) fillTicketMeta(w); };
+  w.walkPending = true; refresh();
+  const ctl = new AbortController(); const timer = setTimeout(() => ctl.abort(), 6000);
   try {
     const u = new URL(SEARCH_PROXY.replace(/\/$/, "").replace(/\/search$/, "") + "/route/pedestrian");
     u.searchParams.set("startX", state.center.lng); u.searchParams.set("startY", state.center.lat);
     u.searchParams.set("endX", w.x); u.searchParams.set("endY", w.y);
-    const res = await fetch(u);
-    if (!res.ok) return;
-    const b = await res.json();
-    if (!(b.totalTime > 0)) return;
-    w.walkSec = b.totalTime; w.walkFrom = from;
-    if (state.picked && state.picked.id === w.id) fillTicketMeta(w);
+    const res = await fetch(u, { signal: ctl.signal });
+    if (res.ok) {
+      const b = await res.json();
+      if (b.totalTime > 0) { w.walkSec = b.totalTime; w.walkFrom = from; }
+    }
   } catch {}
+  clearTimeout(timer);
+  w.walkPending = false; refresh();
 }
 function fillTicketMeta(w) {
-  $("tMeta").innerHTML = `<span>${esc(shortCat(w.category_name))}</span><span>${fmtDist(w.distance)}</span><span>${esc(walkTimeLabel(w))}</span>`;
-  $("ticket").classList.toggle("real-walk", !!realWalkSec(w));   // real time → hide the straight-line disclaimer
+  const walk = w.walkPending ? "도보 시간 확인 중…" : walkTimeLabel(w);
+  $("tMeta").innerHTML = `<span>${esc(shortCat(w.category_name))}</span><span>${fmtDist(w.distance)}</span><span>${esc(walk)}</span>`;
+  // Show the straight-line disclaimer only when the estimate is what's displayed
+  $("ticket").classList.toggle("real-walk", !!realWalkSec(w) || !!w.walkPending);
 }
 function fillTicket(winner) {
   state.picked = winner;
