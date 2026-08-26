@@ -34,11 +34,11 @@
     --yellow: #F2C63B;
     --map-bg: #22271F;
     --ticket-ink: #1B1F1A;       /* text on the yellow ticket stays dark regardless of theme */
-    --radius: 14px;
-    --font-display: 'Pretendard', -apple-system, 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif;
+    --radius: 4px;
     --font-body: 'Pretendard', -apple-system, 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif;
+    --font-small: var(--font-body);
+
     --map-h: 42vh;        /* map height (adjustable via the drag handle) */
-    --detail-w: 440px;    /* right detail panel width (adjustable via the drag handle) */
   }
   @media (prefers-color-scheme: light) { :root {
     color-scheme: light;
@@ -57,6 +57,11 @@
     --map-bg: #E3E8E0;
   } }
   * { box-sizing: border-box; }
+  /* Lucide icons (inline sprite at the top of <body>) */
+  .ic { width: 16px; height: 16px; flex: none; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; vertical-align: -3px; }
+  .btn { display: inline-flex; align-items: center; justify-content: center; gap: 7px; }
+  .btn .ic { width: 15px; height: 15px; }
+  .btn.big .ic { width: 20px; height: 20px; stroke-width: 2.25; }
   html, body { margin: 0; height: 100%; }
   body {
     font-family: var(--font-body);
@@ -73,7 +78,7 @@
   /* ---------- Layout (desktop: 3-column grid / mobile: map + bottom sheet) ---------- */
   .app {
     display: grid;
-    grid-template-columns: 400px minmax(0, 1fr) auto auto;
+    grid-template-columns: 400px minmax(0, 1fr);
     grid-template-rows: auto var(--map-h) auto minmax(0, 1fr);
     height: 100vh;
     height: 100dvh;
@@ -114,8 +119,6 @@
     min-height: 0;
     min-width: 0;
   }
-  .handle-v { grid-area: 1 / 3 / 5 / 4; }
-  .detail { grid-area: 1 / 4 / 5 / 5; }
   .sheet { display: contents; }          /* on desktop the sheet is just a wrapper: its children are placed directly in the grid */
   .sheet-bar { display: none; }
   .row > * { min-width: 0; }
@@ -147,111 +150,70 @@
     border-bottom: 1px solid var(--line);
   }
   .handle-h::before { width: 56px; height: 4px; }
-  .handle-v {
-    width: 12px;
-    cursor: col-resize;
-    border-left: 1px solid var(--line);
-    border-right: 1px solid var(--line);
-  }
-  .handle-v::before { width: 4px; height: 56px; }
   .handle[hidden] { display: none; }
   body.resizing { cursor: inherit; }
   body.resizing iframe, body.resizing #map { pointer-events: none; }
 
-  /* ---------- Right detail panel ---------- */
-  .detail {
-    width: var(--detail-w);
-    background: var(--paper);
-    display: flex;
-    flex-direction: column;
-    min-height: 0;
-    min-width: 0;
-  }
-  .detail[hidden] { display: none; }
-  .detail .head {
-    padding: 10px 14px 9px;
-    border-bottom: 1px solid var(--line);
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
-    gap: 2px 10px;
-    align-items: center;
-  }
-  .detail .head .close { grid-column: 2; grid-row: 1 / 3; }
-  .detail .head .close { border: 0; background: none; font-size: 22px; line-height: 1; padding: 0 2px; color: var(--ink-2); }
-  .detail .head .close:hover { color: var(--ink); }
-  .detail .head .c { font-size: 12.5px; color: var(--ink-2); }
-  .detail .head .a { font-size: 13px; color: var(--ink); overflow-wrap: anywhere; }
-  .detail .head .a a { color: var(--green-text); text-decoration: none; font-weight: 700; }
-  .detail .body { flex: 1; min-height: 0; position: relative; background: var(--map-bg); }
-  .detail .body > * { position: absolute; inset: 0; width: 100%; height: 100%; }
-  .detail .body [hidden] { display: none; }
-  .detail .body .view-tag {
-    inset: auto 10px 10px auto; width: auto; height: auto;
-    font-size: 11px; font-weight: 700; padding: 4px 8px; border-radius: 999px;
-    background: rgba(27,31,26,.75); color: #fff; pointer-events: none;
-  }
-  .detail .foot {
-    display: flex; gap: 8px; padding: 12px 14px; border-top: 1px solid var(--line);
-  }
-  .detail .foot .btn { flex: 1; padding: 10px 8px; font-size: 13px; text-align: center; text-decoration: none; white-space: nowrap; }
 
 
   /* ---------- Sidebar ---------- */
   .brand h1 {
-    font-family: var(--font-display);
+    font-family: var(--font-body);
     font-weight: 800;
     font-size: 40px;
     letter-spacing: -0.03em;
     line-height: 1;
     margin: 0;
-    letter-spacing: -0.5px;
     color: var(--red);
   }
-  .brand p { margin: 6px 0 0; color: var(--ink-2); font-size: 14px; }
+  .brand p { margin: 8px 0 0; color: var(--ink-2); font-family: var(--font-small); font-size: 13px; padding-top: 8px; border-top: 1px dashed var(--line); }
   .brand-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
 
   .field { display: flex; flex-direction: column; gap: 8px; }
   .label {
+    font-family: var(--font-small);
     font-size: 12px;
     font-weight: 700;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
+    letter-spacing: 0.04em;
     color: var(--ink-2);
     display: flex; justify-content: space-between; align-items: baseline;
   }
-  .label small { font-weight: 500; letter-spacing: 0; text-transform: none; color: var(--ink-2); margin-left: 4px; }
+  .label small { font-weight: 400; letter-spacing: 0; color: var(--ink-2); margin-left: 4px; font-size: 12px; }
+  .label > span { display: inline-flex; align-items: center; gap: 6px; }
   .row { display: flex; gap: 8px; }
   input[type="text"], input[type="number"], input[type="password"], select {
     width: 100%;
     padding: 10px 12px;
-    border: 1.5px solid var(--line);
-    border-radius: 10px;
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
     background: var(--paper-2);
   }
   input:focus, select:focus { border-color: var(--ink); background: var(--paper); }
   .mode { flex: 1; }
   .minutes { position: relative; width: 108px; flex: none; display: block; }
-  .minutes input { padding-right: 34px; text-align: right; font-variant-numeric: tabular-nums; }
+  .minutes input { padding-right: 34px; text-align: right; font-family: var(--font-small); font-weight: 700; }
   .minutes span { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); color: var(--ink-2); font-size: 13px; pointer-events: none; }
   .linkbtn { border: 0; background: none; padding: 0; font-size: 12px; color: var(--ink-2); text-decoration: underline; text-underline-offset: 3px; font-weight: 500; letter-spacing: 0; text-transform: none; }
   .linkbtn:hover { color: var(--ink); }
 
   .chips { display: flex; flex-wrap: wrap; gap: 6px; }
   .chip {
-    padding: 6px 12px;
-    border: 1.5px solid var(--line);
-    border-radius: 999px;
+    padding: 5px 10px;
+    border: 1px solid var(--line);
+    border-radius: 3px;
     background: var(--paper);
-    font-size: 14px;
+    font-size: 13.5px;
+    font-weight: 600;
     transition: background .12s, border-color .12s, color .12s;
   }
   .chip { touch-action: none; user-select: none; -webkit-user-select: none; display: inline-flex; align-items: center; gap: 4px; }
   .chip.want { background: var(--green); border-color: var(--green); color: #fff; }
   .chip.no { border-style: dashed; border-color: var(--red-text); color: var(--red-text); }
   .chip.no.skip { border-style: dotted; opacity: .85; }          /* store skipped for today only */
-  .chip.hist { background: var(--paper); border-color: var(--line); color: var(--ink); font-size: 13px; padding: 5px 10px; }
+  .chip.hist { background: var(--paper); border-color: var(--line); color: var(--ink); font-size: 12.5px; padding: 4px 9px; font-weight: 500; }
   .chip.hist.cur { border-color: var(--yellow); background: rgba(242,198,59,.18); }
-  .chip .rm { font-size: 11px; opacity: .6; line-height: 1; padding: 2px 0 2px 2px; }
+  .chip .rm { display: inline-flex; opacity: .55; line-height: 1; padding: 0 0 0 2px; }
+  .chip .rm .ic { width: 12px; height: 12px; stroke-width: 2.5; }
   .chip .rm:hover { opacity: 1; }
   .chip.lifting { opacity: .3; }
   .chip.ghost {
@@ -264,8 +226,8 @@
   /* Want / Don't-want zones — rendered as a single component */
   .zones {
     display: grid; grid-template-columns: 1fr 1fr;
-    border: 1.5px solid var(--line);
-    border-radius: 12px;
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
     overflow: hidden;
     background: var(--paper-2);
   }
@@ -276,9 +238,10 @@
     transition: background .12s;
     min-width: 0;
   }
-  .zone.no { border-left: 1.5px solid var(--line); }
+  .zone.no { border-left: 1px dashed var(--line); }
   .zone .zh { font-size: 12px; font-weight: 700; display: flex; flex-direction: column; gap: 1px; }
-  .zone .zh small { font-weight: 500; color: var(--ink-2); font-size: 11px; }
+  .zone .zh small { font-family: var(--font-small); font-weight: 400; color: var(--ink-2); font-size: 11px; }
+  .zone .zh > span { display: inline-flex; align-items: center; gap: 5px; }
   .zone.want .zh > span { color: var(--green-text); }
   .zone.no .zh > span { color: var(--red-text); }
   .zone .chips { flex: 1; align-content: flex-start; min-height: 32px; position: relative; }
@@ -291,17 +254,18 @@
   .zone.no.over { background: rgba(216,53,43,.14); box-shadow: inset 0 0 0 2px var(--red); }
   .zone-input {
     grid-column: 1 / -1;
-    display: flex; gap: 6px; align-items: center;
+    display: flex; gap: 8px; align-items: center;
     padding: 8px;
-    border-top: 1.5px solid var(--line);
+    border-top: 1px dashed var(--line);
     background: var(--paper);
   }
-  .zone-input input[type="text"] { flex: 1; min-width: 0; padding: 7px 10px; font-size: 13px; border-radius: 8px; }
+  .zone-input .ic { color: var(--ink-2); margin-left: 4px; }
+  .zone-input input[type="text"] { flex: 1; min-width: 0; padding: 7px 10px; font-size: 13px; border-radius: 3px; }
 
   .btn {
     padding: 12px 16px;
-    border-radius: 10px;
-    border: 1.5px solid var(--ink);
+    border-radius: var(--radius);
+    border: 1px solid var(--ink);
     background: var(--ink);
     color: var(--paper);
     font-weight: 700;
@@ -314,7 +278,7 @@
 
 
 
-  .status { font-size: 13px; color: var(--ink-2); }
+  .status { font-family: var(--font-small); font-size: 13px; color: var(--ink-2); }
   .status[hidden] { display: none; }
   .field[hidden] { display: none; }
   .status.error { color: var(--red-text); font-weight: 600; }
@@ -324,7 +288,7 @@
     position: relative;
     background: var(--yellow);
     color: var(--ticket-ink);
-    border-radius: var(--radius);
+    border-radius: 2px;
     padding: 20px 26px;
     margin-bottom: 16px;
     overflow: hidden;
@@ -335,13 +299,14 @@
   }
   .ticket > * { min-width: 0; }
   .ticket .t-head { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
-  .ticket .t-count { font-size: 13px; color: rgba(27,31,26,.7); }
+  .ticket .t-count { font-size: 12.5px; color: rgba(27,31,26,.75); font-family: var(--font-small); }
   .ticket[data-state="idle"] .name, .ticket[data-state="idle"] .meta, .ticket[data-state="idle"] .t-done { display: none; }
   .ticket[data-state="rolling"] .t-idle, .ticket[data-state="done"] .t-idle { display: none; }
   .ticket[data-state="rolling"] .t-done { pointer-events: none; opacity: .55; }
   .ticket[hidden] { display: none; }
   .ticket[data-state="idle"] { padding: 18px 26px; }
-  .ticket .btn.big { font-family: var(--font-display); font-weight: 800; font-size: 20px; padding: 12px 30px; letter-spacing: .02em; }
+  .ticket .btn.big { font-family: var(--font-body); font-weight: 800; font-size: 20px; padding: 12px 28px; letter-spacing: -.01em; border-radius: 3px; }
+  .ticket .t-done { padding-left: 18px; border-left: 1px dashed rgba(27,31,26,.35); }   /* perforation between stub and actions */
   .ticket::before, .ticket::after {
     content: "";
     position: absolute;
@@ -353,11 +318,11 @@
   .ticket::before { left: -13px; }
   .ticket::after { right: -13px; }
   .ticket .eyebrow {
-    font-size: 12px; font-weight: 700; letter-spacing: .1em; color: var(--red-deep);
+    font-family: var(--font-small); font-size: 12px; font-weight: 700; letter-spacing: .08em; color: var(--red-deep);
   }
-  .ticket[data-state="idle"] .eyebrow { font-size: 15px; letter-spacing: .04em; }
+  .ticket[data-state="idle"] .eyebrow { font-family: var(--font-body); font-size: 16px; font-weight: 800; letter-spacing: -.01em; }
   .ticket .name {
-    font-family: var(--font-display);
+    font-family: var(--font-body);
     font-weight: 800;
     letter-spacing: -0.02em;
     font-size: clamp(30px, 4vw, 48px);
@@ -387,7 +352,7 @@
     60%  { transform: translateY(5%); }
     100% { transform: translateY(0); }
   }
-  .ticket .meta { font-size: 14px; color: var(--ticket-ink); }
+  .ticket .meta { font-family: var(--font-small); font-size: 13px; color: var(--ticket-ink); font-weight: 700; }
   .ticket .meta span + span::before { content: " · "; color: rgba(27,31,26,.5); }
   .ticket .actions { display: flex; flex-direction: column; gap: 8px; }
   .ticket .actions .btn { padding: 10px 14px; white-space: nowrap; text-align: center; }
@@ -400,9 +365,10 @@
   .list { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 10px; }
   .card {
     background: var(--paper);
-    border: 1.5px solid var(--line);
+    border: 1px solid var(--line);
     border-radius: var(--radius);
     padding: 14px 16px;
+    border-left-width: 3px;
     display: grid;
     grid-template-columns: 1fr auto;
     gap: 6px 12px;
@@ -410,24 +376,30 @@
     transition: border-color .12s, transform .12s;
   }
   .card:hover { border-color: var(--ink); }
-  .card.active { border-color: var(--red); box-shadow: 0 0 0 2px rgba(216,53,43,.15); }
-  .card .n { font-weight: 700; font-size: 16px; min-width: 0; overflow-wrap: anywhere; }
+  .card.active { border-color: var(--line); border-left-color: var(--red); background: var(--paper-2); }
+  .card .n { font-weight: 700; font-size: 15.5px; letter-spacing: -.01em; min-width: 0; overflow-wrap: anywhere; }
   .card .dist {
     font-variant-numeric: tabular-nums;
     font-weight: 700;
+    font-size: 14px;
     color: var(--green-text);
     white-space: nowrap;
   }
-  .card .c { grid-column: 1 / -1; font-size: 13px; color: var(--ink-2); }
-  .card .a { grid-column: 1 / -1; font-size: 12.5px; color: var(--ink-2); }
-  .card .links { grid-column: 1 / -1; display: flex; gap: 12px; font-size: 12.5px; margin-top: 4px; }
-  .card .links a { color: var(--green-text); font-weight: 600; text-decoration: none; }
-  .card .links button { border: 0; background: none; padding: 0; color: var(--red-text); font-size: 12.5px; font-weight: 600; }
+  .card .c { grid-column: 1 / -1; font-family: var(--font-small); font-size: 12.5px; color: var(--ink-2); }
+  .card .a { grid-column: 1 / -1; font-family: var(--font-small); font-size: 12px; color: var(--ink-2); }
+  .card .links { grid-column: 1 / -1; display: flex; align-items: center; gap: 14px; margin-top: 6px; padding-top: 8px; border-top: 1px dashed var(--line); }
+  .card .links a, .card .links button {
+    display: inline-flex; align-items: center; height: 20px; padding: 0; margin: 0; border: 0; background: none;
+    font: inherit; font-family: var(--font-small); font-size: 12px; font-weight: 700; line-height: 1; text-decoration: none; cursor: pointer; gap: 4px;
+  }
+  .card .links a { color: var(--green-text); }
+  .card .links button { color: var(--red-text); }
 
 
   /* today's pick history */
   .history { display: flex; align-items: flex-start; gap: 8px; margin: -6px 0 16px; font-size: 12px; color: var(--ink-2); }
-  .history .h-label { flex: none; padding-top: 6px; font-weight: 700; letter-spacing: .04em; }
+  .history { font-family: var(--font-small); }
+  .history .h-label { flex: none; padding-top: 5px; font-size: 12px; font-weight: 700; letter-spacing: .04em; display: inline-flex; align-items: center; gap: 5px; }
   .history[hidden] { display: none; }
 
   /* empty-state actions */
@@ -437,7 +409,7 @@
   /* toast */
   .toast {
     position: fixed; left: 50%; bottom: calc(24px + env(safe-area-inset-bottom)); transform: translateX(-50%) translateY(10px);
-    background: var(--ink); color: var(--paper); padding: 10px 16px; border-radius: 999px; font-size: 13px; font-weight: 600;
+    background: var(--ink); color: var(--paper); padding: 10px 16px; border-radius: 3px; font-size: 13px; font-weight: 600;
     opacity: 0; pointer-events: none; transition: opacity .18s, transform .18s; z-index: 60; white-space: nowrap;
   }
   .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
@@ -446,12 +418,14 @@
     padding: 48px 20px;
     text-align: center;
     color: var(--ink-2);
-    border: 1.5px dashed var(--line);
+    border: 1px dashed var(--line);
     border-radius: var(--radius);
   }
-  .empty b { color: var(--ink); display: block; font-size: 17px; margin-bottom: 6px; }
+  .empty { font-family: var(--font-small); font-size: 13.5px; }
+  .empty b { color: var(--ink); display: block; font-family: var(--font-body); font-size: 17px; font-weight: 800; margin: 10px 0 6px; }
+  .empty .ic { width: 28px; height: 28px; opacity: .5; }
 
-  /* ---------- Mobile: full-bleed map with a bottom sheet holding Settings / List / Detail ---------- */
+  /* ---------- Mobile: full-bleed map with a bottom sheet holding Settings / List ---------- */
   @media (max-width: 860px) {
     body { overflow: hidden; }
     .app { display: flex; flex-direction: column; }
@@ -460,10 +434,10 @@
       padding-top: calc(8px + env(safe-area-inset-top));
     }
     .brand-row { align-items: center; }
-    .brand h1 { font-size: 22px; line-height: 1.2; }
+    .brand h1 { font-size: 24px; line-height: 1.1; }
     .brand p { display: none; }
     #map { flex: 1 1 auto; height: auto; min-height: 96px; }
-    .handle-h, .handle-v { display: none; }
+    .handle-h { display: none; }
 
     .sheet {
       display: flex; flex-direction: column;
@@ -473,7 +447,7 @@
       min-height: 0;
       background: var(--paper);
       border-top: 1px solid var(--line);
-      border-radius: 18px 18px 0 0;
+      border-radius: 10px 10px 0 0;
       box-shadow: 0 -10px 30px rgba(0,0,0,.28);
       transition: height .22s ease-out;
       position: relative; z-index: 5;
@@ -481,15 +455,15 @@
     }
     .sheet.dragging { transition: none; }
     .sheet-bar { display: block; flex: none; touch-action: none; user-select: none; -webkit-user-select: none; cursor: grab; }
-    .sheet-bar .grip { width: 44px; height: 5px; border-radius: 99px; background: var(--line); margin: 8px auto 2px; }
+    .sheet-bar .grip { width: 40px; height: 4px; border-radius: 2px; background: var(--line); margin: 8px auto 2px; }
     .stabs { display: flex; padding: 0 8px; border-bottom: 1px solid var(--line); }
     .stabs button {
       flex: 1; padding: 9px 4px 10px; border: 0; background: none;
-      font-size: 14px; font-weight: 700; color: var(--ink-2);
+      font-family: var(--font-body); font-size: 14px; font-weight: 700; color: var(--ink-2); display: inline-flex; align-items: center; justify-content: center; gap: 6px;
       border-bottom: 2px solid transparent; margin-bottom: -1px; white-space: nowrap;
     }
     .stabs button[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--red); }
-    .stabs .tc { font-weight: 500; font-size: 12px; color: var(--ink-2); margin-left: 3px; }
+    .stabs .tc { font-family: var(--font-small); font-weight: 700; font-size: 12px; color: var(--ink-2); margin-left: 2px; }
 
     .panel { display: none; }
     .panel.active { display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; }
@@ -509,6 +483,7 @@
     .ticket[data-state="idle"] { padding: 14px 18px 16px; }
     .ticket .t-idle .btn.big { width: 100%; }
     .ticket .name { font-size: 28px; }
+    .ticket .t-done { padding-left: 0; border-left: 0; padding-top: 12px; border-top: 1px dashed rgba(27,31,26,.35); }
     .ticket .t-done { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 8px; }
     .ticket[data-state="idle"] .t-done { display: none; }
     .ticket .t-done .btn { padding: 10px 6px; font-size: 13px; white-space: normal; min-width: 0; line-height: 1.25; }
@@ -518,12 +493,6 @@
     .card { padding: 12px 14px; }
     .empty { padding: 32px 16px; }
 
-    .detail { width: auto; }
-    .detail .body { min-height: 240px; flex: 1 0 240px; }
-    .detail .foot { position: sticky; bottom: 0; background: var(--paper); }
-    .detail.no-place .head, .detail.no-place .body, .detail.no-place .foot { display: none; }
-    .detail .d-empty { margin: 16px 14px; }
-    .detail .d-empty[hidden] { display: none; }
   }
   @media (max-width: 380px) {
     .stabs button { font-size: 13px; }
@@ -536,6 +505,7 @@
 </style>
 </head>
 <body>
+<svg xmlns="http://www.w3.org/2000/svg" style="display:none" aria-hidden="true"><symbol id="i-ban" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" /> <path d="M4.929 4.929 19.07 19.071" /></symbol><symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" /> <path d="M12 6v6l4 2" /></symbol><symbol id="i-crosshair" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" /> <line x1="22" x2="18" y1="12" y2="12" /> <line x1="6" x2="2" y1="12" y2="12" /> <line x1="12" x2="12" y1="6" y2="2" /> <line x1="12" x2="12" y1="22" y2="18" /></symbol><symbol id="i-dices" viewBox="0 0 24 24"><rect width="12" height="12" x="2" y="10" rx="2" ry="2" /> <path d="m17.92 14 3.5-3.5a2.24 2.24 0 0 0 0-3l-5-4.92a2.24 2.24 0 0 0-3 0L10 6" /> <path d="M6 18h.01" /> <path d="M10 14h.01" /> <path d="M15 6h.01" /> <path d="M18 9h.01" /></symbol><symbol id="i-footprints" viewBox="0 0 24 24"><path d="M4 16v-2.38C4 11.5 2.97 10.5 3 8c.03-2.72 1.49-6 4.5-6C9.37 2 10 3.8 10 5.5c0 3.11-2 5.66-2 8.68V16a2 2 0 1 1-4 0Z" /> <path d="M20 20v-2.38c0-2.12 1.03-3.12 1-5.62-.03-2.72-1.49-6-4.5-6C14.63 6 14 7.8 14 9.5c0 3.11 2 5.66 2 8.68V20a2 2 0 1 0 4 0Z" /> <path d="M16 17h4" /> <path d="M4 13h4" /></symbol><symbol id="i-history" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" /> <path d="M12 6v6h4" /></symbol><symbol id="i-list" viewBox="0 0 24 24"><path d="M3 5h.01" /> <path d="M3 12h.01" /> <path d="M3 19h.01" /> <path d="M8 5h13" /> <path d="M8 12h13" /> <path d="M8 19h13" /></symbol><symbol id="i-locate" viewBox="0 0 24 24"><line x1="2" x2="5" y1="12" y2="12" /> <line x1="19" x2="22" y1="12" y2="12" /> <line x1="12" x2="12" y1="2" y2="5" /> <line x1="12" x2="12" y1="19" y2="22" /> <circle cx="12" cy="12" r="7" /></symbol><symbol id="i-map-pin" viewBox="0 0 24 24"><path d="M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0" /> <circle cx="12" cy="10" r="3" /></symbol><symbol id="i-navigation" viewBox="0 0 24 24"><polygon points="3 11 22 2 13 21 11 13 3 11" /></symbol><symbol id="i-plus" viewBox="0 0 24 24"><path d="M5 12h14" /> <path d="M12 5v14" /></symbol><symbol id="i-refresh-cw" viewBox="0 0 24 24"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8" /> <path d="M21 3v5h-5" /> <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16" /> <path d="M8 16H3v5" /></symbol><symbol id="i-rotate-ccw" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" /> <path d="M3 3v5h5" /></symbol><symbol id="i-search-x" viewBox="0 0 24 24"><path d="m13.5 8.5-5 5" /> <path d="m8.5 8.5 5 5" /> <circle cx="11" cy="11" r="8" /> <path d="m21 21-4.3-4.3" /></symbol><symbol id="i-search" viewBox="0 0 24 24"><path d="m21 21-4.34-4.34" /> <circle cx="11" cy="11" r="8" /></symbol><symbol id="i-share-2" viewBox="0 0 24 24"><circle cx="18" cy="5" r="3" /> <circle cx="6" cy="12" r="3" /> <circle cx="18" cy="19" r="3" /> <line x1="8.59" x2="15.42" y1="13.51" y2="17.49" /> <line x1="15.41" x2="8.59" y1="6.51" y2="10.49" /></symbol><symbol id="i-sliders-horizontal" viewBox="0 0 24 24"><path d="M10 5H3" /> <path d="M12 19H3" /> <path d="M14 3v4" /> <path d="M16 17v4" /> <path d="M21 12h-9" /> <path d="M21 19h-5" /> <path d="M21 5h-7" /> <path d="M8 10v4" /> <path d="M8 12H3" /></symbol><symbol id="i-store" viewBox="0 0 24 24"><path d="M15 21v-5a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v5" /> <path d="M17.774 10.31a1.12 1.12 0 0 0-1.549 0 2.5 2.5 0 0 1-3.451 0 1.12 1.12 0 0 0-1.548 0 2.5 2.5 0 0 1-3.452 0 1.12 1.12 0 0 0-1.549 0 2.5 2.5 0 0 1-3.77-3.248l2.889-4.184A2 2 0 0 1 7 2h10a2 2 0 0 1 1.653.873l2.895 4.192a2.5 2.5 0 0 1-3.774 3.244" /> <path d="M4 10.95V19a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8.05" /></symbol><symbol id="i-thumbs-down" viewBox="0 0 24 24"><path d="M9 18.12 10 14H4.17a2 2 0 0 1-1.92-2.56l2.33-8A2 2 0 0 1 6.5 2H20a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-2.76a2 2 0 0 0-1.79 1.11L12 22a3.13 3.13 0 0 1-3-3.88Z" /> <path d="M17 14V2" /></symbol><symbol id="i-thumbs-up" viewBox="0 0 24 24"><path d="M15 5.88 14 10h5.83a2 2 0 0 1 1.92 2.56l-2.33 8A2 2 0 0 1 17.5 22H4a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2h2.76a2 2 0 0 0 1.79-1.11L12 2a3.13 3.13 0 0 1 3 3.88Z" /> <path d="M7 10v12" /></symbol><symbol id="i-utensils-crossed" viewBox="0 0 24 24"><path d="m16 2-2.3 2.3a3 3 0 0 0 0 4.2l1.8 1.8a3 3 0 0 0 4.2 0L22 8" /> <path d="M15 15 3.3 3.3a4.2 4.2 0 0 0 0 6l7.3 7.3c.7.7 2 .7 2.8 0L15 15Zm0 0 7 7" /> <path d="m2.1 21.8 6.4-6.3" /> <path d="m19 5-7 7" /></symbol><symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6 6 18" /> <path d="m6 6 12 12" /></symbol></svg>
 <div class="app">
   <!-- ================= Brand (desktop: top-left / mobile: top bar) ================= -->
   <header class="brand" id="brand">
@@ -554,9 +524,8 @@
     <div class="sheet-bar" id="sheetBar">
       <div class="grip" aria-hidden="true"></div>
       <div class="stabs" role="tablist" aria-label="화면 전환">
-        <button type="button" role="tab" data-panel="settings" aria-selected="true">조건</button>
-        <button type="button" role="tab" data-panel="results" aria-selected="false">목록<span class="tc" id="tabCount"></span></button>
-        <button type="button" role="tab" data-panel="detail" id="stabDetail" aria-selected="false">상세</button>
+        <button type="button" role="tab" data-panel="settings" aria-selected="true"><svg class="ic" aria-hidden="true"><use href="#i-sliders-horizontal"/></svg>조건</button>
+        <button type="button" role="tab" data-panel="results" aria-selected="false"><svg class="ic" aria-hidden="true"><use href="#i-list"/></svg>목록<span class="tc" id="tabCount"></span></button>
       </div>
     </div>
 
@@ -564,42 +533,42 @@
     <section class="panel settings active" id="panelSettings" aria-label="검색 조건">
      <div class="settings-body">
       <div class="field">
-        <div class="label"><span>내 위치 <small id="locHint"></small></span><button class="btn ghost" id="geo" style="padding:4px 10px;font-size:12px">현재 위치 잡기</button></div>
+        <div class="label"><span><svg class="ic" aria-hidden="true"><use href="#i-map-pin"/></svg>내 위치 <small id="locHint"></small></span><button class="btn ghost" id="geo" style="padding:4px 10px;font-size:12px"><svg class="ic" aria-hidden="true"><use href="#i-locate"/></svg><span id="geoLabel">현재 위치 잡기</span></button></div>
       </div>
 
       <div class="field">
-        <div class="label"><span>반경</span><small id="radiusHint"></small></div>
+        <div class="label"><span><svg class="ic" aria-hidden="true"><use href="#i-footprints"/></svg>반경</span><small id="radiusHint"></small></div>
         <div class="row">
           <select id="mode" class="mode" aria-label="이동 수단">
-            <option value="walk">🚶 걸어서</option>
-            <option value="run">🏃 뛰어서</option>
-            <option value="drive">🚗 차 타고</option>
-            <option value="fly">✈️ 날아서</option>
+            <option value="walk">걸어서</option>
+            <option value="run">뛰어서</option>
+            <option value="drive">차 타고</option>
+            <option value="fly">날아서</option>
           </select>
           <label class="minutes"><input type="number" id="minutes" value="5" min="1" step="1" aria-label="분" /><span>분</span></label>
         </div>
       </div>
 
       <div class="field">
-        <div class="label"><span>장르</span><button class="linkbtn" id="resetGenres" type="button">기본값으로</button></div>
+        <div class="label"><span><svg class="ic" aria-hidden="true"><use href="#i-utensils-crossed"/></svg>장르</span><button class="linkbtn" id="resetGenres" type="button"><svg class="ic" aria-hidden="true"><use href="#i-rotate-ccw"/></svg>기본값으로</button></div>
         <div class="zones">
           <div class="zone want" data-zone="want">
-            <div class="zh"><span>먹고 싶은</span><small>비우면 전체</small></div>
+            <div class="zh"><span><svg class="ic" aria-hidden="true"><use href="#i-thumbs-up"/></svg>먹고 싶은</span><small>비우면 전체</small></div>
             <div class="chips" id="wantChips" data-empty="여기로 끌어다 놓기"></div>
           </div>
           <div class="zone no" data-zone="no">
-            <div class="zh"><span>먹기 싫은</span><small>이름·업종에 포함되면 제외</small></div>
+            <div class="zh"><span><svg class="ic" aria-hidden="true"><use href="#i-thumbs-down"/></svg>먹기 싫은</span><small>이름·업종에 포함되면 제외</small></div>
             <div class="chips" id="noChips" data-empty="여기로 끌어다 놓기"></div>
           </div>
           <div class="zone-input">
-            <input type="text" id="genreInput" placeholder="직접 입력 후 Enter (Shift+Enter는 먹기 싫은에)" aria-label="장르 직접 입력" />
+            <svg class="ic" aria-hidden="true"><use href="#i-plus"/></svg><input type="text" id="genreInput" placeholder="직접 입력 후 Enter (Shift+Enter는 먹기 싫은에)" aria-label="장르 직접 입력" />
           </div>
         </div>
       </div>
 
      </div>
       <div class="actions">
-        <button class="btn" id="search" disabled>이 조건으로 찾기</button>
+        <button class="btn" id="search" disabled><svg class="ic" aria-hidden="true"><use href="#i-search"/></svg><span id="searchLabel">이 조건으로 찾기</span></button>
         <div class="status" id="status" hidden></div>
       </div>
     </section>
@@ -613,51 +582,28 @@
           <div class="meta" id="tMeta"></div>
         </div>
         <div class="actions t-idle">
-          <button class="btn red big" id="pick" type="button" disabled>뽑기</button>
+          <button class="btn red big" id="pick" type="button" disabled><svg class="ic" aria-hidden="true"><use href="#i-dices"/></svg>뽑기</button>
         </div>
         <div class="actions t-done">
-          <button class="btn secondary" id="tDetail" type="button">상세 보기</button>
-          <a class="btn ghost" id="tLink" href="#" target="_blank" rel="noopener">카카오맵 열기</a>
-          <button class="btn ghost" id="tReroll" type="button">다시 뽑기</button>
-          <button class="btn ghost" id="tSkip" type="button">여긴 빼고 뽑기</button>
-          <button class="btn ghost" id="tShare" type="button">공유</button>
+          <a class="btn secondary" id="tLink" href="#" target="_blank" rel="noopener"><svg class="ic" aria-hidden="true"><use href="#i-store"/></svg>가게 정보</a>
+          <a class="btn ghost" id="tRoute" href="#" target="_blank" rel="noopener"><svg class="ic" aria-hidden="true"><use href="#i-navigation"/></svg>길찾기</a>
+          <button class="btn ghost" id="tReroll" type="button"><svg class="ic" aria-hidden="true"><use href="#i-refresh-cw"/></svg>다시 뽑기</button>
+          <button class="btn ghost" id="tSkip" type="button"><svg class="ic" aria-hidden="true"><use href="#i-ban"/></svg>여긴 빼고</button>
+          <button class="btn ghost" id="tShare" type="button"><svg class="ic" aria-hidden="true"><use href="#i-share-2"/></svg>공유</button>
         </div>
       </div>
       <div class="history" id="history" hidden>
-        <span class="h-label">오늘 뽑힌</span>
+        <span class="h-label"><svg class="ic" aria-hidden="true"><use href="#i-history"/></svg>오늘 뽑힌</span>
         <div class="chips" id="historyChips"></div>
       </div>
 
       <div class="list" id="list"></div>
       <div class="empty" id="empty">
-        <b>아직 결과가 없어요</b>
+        <svg class="ic" aria-hidden="true"><use href="#i-search-x"/></svg><b>아직 결과가 없어요</b>
         반경과 장르를 고른 뒤 「이 조건으로 찾기」를 누르세요.
       </div>
     </section>
 
-    <!-- ---------- Place detail (desktop: right panel / mobile: sheet tab) ---------- -->
-    <div class="handle handle-v" id="splitV" role="separator" aria-orientation="vertical" aria-label="상세 패널 폭 조절 (드래그 또는 ←→ 키)" tabindex="0" title="끌어서 패널 폭 조절 · 더블클릭하면 원래대로" hidden></div>
-    <aside class="panel detail" id="detail" hidden aria-label="가게 상세 정보">
-      <div class="head">
-        <div class="a" id="dAddr"></div>
-        <button class="close" id="dClose" type="button" aria-label="닫기">×</button>
-        <div class="c" id="dCat"></div>
-      </div>
-      <div class="empty d-empty" id="dEmpty" hidden>
-        <b>아직 고른 가게가 없어요</b>
-        뽑기를 하거나 목록·지도에서 가게를 누르면 여기에 상세가 보여요.
-      </div>
-      <div class="body">
-        <div id="dRoadview"></div>
-        <div id="dStatic" hidden></div>
-        <div class="view-tag" id="dViewTag" hidden></div>
-      </div>
-      <div class="foot">
-        <a class="btn" id="dOpen" href="#" target="_blank" rel="noopener">카카오맵에서 열기</a>
-        <a class="btn secondary" id="dRoute" href="#" target="_blank" rel="noopener">길찾기</a>
-        <button class="btn ghost" id="dPick" type="button">오늘은 여기!</button>
-      </div>
-    </aside>
   </div>
 </div>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
@@ -682,6 +628,7 @@ const MAX_RADIUS_M = 20000;   // Kakao API upper limit
 const MAX_PAGES = 3;          // up to 45 results per keyword
 
 const $ = (id) => document.getElementById(id);
+const ICON = (name, cls = "") => `<svg class="ic${cls ? " " + cls : ""}" aria-hidden="true"><use href="#i-${name}"/></svg>`;
 const state = {
   center: null,        // {lat, lng}
   genres: new Set(GENRES),   // default: every genre starts in "want"
@@ -741,7 +688,7 @@ function makeChip(t, zone, extraClass = "") {
   b.dataset.token = t; b.dataset.from = zone;
   b.title = "끌어서 옮기기 · 클릭하면 반대쪽으로";
   const label = document.createElement("span"); label.textContent = t; b.appendChild(label);
-  const rm = document.createElement("span"); rm.className = "rm"; rm.textContent = "✕"; rm.title = "지우기";
+  const rm = document.createElement("span"); rm.className = "rm"; rm.innerHTML = ICON("x"); rm.title = "지우기";
   b.appendChild(rm);
   b.onkeydown = e => {
     if (e.key === "ArrowLeft") { e.preventDefault(); moveToken(t, "want"); }
@@ -844,7 +791,6 @@ function updateRadiusHint() {
   $("radiusHint").textContent = `반경 ${fmtDist(radiusMeters())}${capped ? " (최대)" : ""}`;
   drawCircle();
   if (state.picked) fillTicketMeta(state.picked);
-  if (detail.place) $("dCat").textContent = detailCat(detail.place);
 }
 $("minutes").addEventListener("input", () => { updateRadiusHint(); markDirty(); savePrefs(); });
 $("mode").addEventListener("change", () => { markDirty(); savePrefs(); });
@@ -859,12 +805,12 @@ function setStatus(msg, isError = false) {
 }
 let searchDirty = false;
 function setSearchBusy(v, label) {
-  const b = $("search"); b.disabled = v; b.textContent = v ? (label || "찾는 중…") : "이 조건으로 찾기";
+  const b = $("search"); b.disabled = v; $("searchLabel").textContent = v ? (label || "찾는 중…") : "이 조건으로 찾기";
 }
 // After a search, flag changed location/radius via the button label
 function markDirty() {
   if (!state.all || searchDirty || $("search").disabled) return;
-  searchDirty = true; $("search").textContent = "바뀐 조건으로 다시 찾기";
+  searchDirty = true; $("searchLabel").textContent = "바뀐 조건으로 다시 찾기";
 }
 
 /* ---------- SDK loading ---------- */
@@ -915,13 +861,13 @@ async function autoLocate() {
 function locate() {
   if (!navigator.geolocation) { setStatus("이 브라우저는 위치를 지원하지 않아요. 지도를 클릭해 기준점을 정하세요.", true); return; }
   if (!state.map) { setStatus("지도가 아직 준비되지 않았어요.", true); return; }
-  const geo = $("geo"); geo.disabled = true; geo.textContent = "확인 중…";
+  const geo = $("geo"); geo.disabled = true; $("geoLabel").textContent = "확인 중…";
   navigator.geolocation.getCurrentPosition(
-    p => { setCenter(p.coords.latitude, p.coords.longitude, "현재 위치"); saveLoc(p.coords.latitude, p.coords.longitude); setStatus(""); geo.disabled = false; geo.textContent = "현재 위치 잡기"; },
+    p => { setCenter(p.coords.latitude, p.coords.longitude, "현재 위치"); saveLoc(p.coords.latitude, p.coords.longitude); setStatus(""); geo.disabled = false; $("geoLabel").textContent = "현재 위치 잡기"; },
     err => {
       const msg = { 1: "위치 권한이 거부됐어요. 주소창 자물쇠 아이콘에서 허용할 수 있어요.", 2: "위치를 알아낼 수 없어요.", 3: "위치 확인이 너무 오래 걸려요." }[err.code] || "위치를 못 잡았어요.";
       setStatus(msg + " 지도를 클릭해 기준점을 정할 수도 있어요.", true);
-      geo.disabled = false; geo.textContent = "현재 위치 잡기";
+      geo.disabled = false; $("geoLabel").textContent = "현재 위치 잡기";
     },
     { enableHighAccuracy: false, maximumAge: 5 * 60 * 1000, timeout: 10000 }
   );
@@ -943,7 +889,7 @@ function setCenter(lat, lng, label) {
   } else state.centerMarker.setPosition(ll);
   $("locHint").textContent = label;
   drawCircle(); markDirty();
-  if (detail.place) $("dRoute").href = routeUrl(detail.place);
+  if (state.picked) $("tRoute").href = routeUrl(state.picked);
 }
 function drawCircle() {
   if (!state.map || !state.center) return;
@@ -1023,7 +969,7 @@ $("search").onclick = async () => {
     state.all = raw.filter(p => !seen.has(p.id) && seen.add(p.id))
       .map(p => ({ ...p, distance: Number(p.distance) || 0 }))
       .sort((a, b) => a.distance - b.distance);
-    state.picked = null; setTicketState("idle"); setReel(["—"]); closeDetail();
+    state.picked = null; setTicketState("idle"); setReel(["—"]);
     applyFilter(true);
     searchDirty = false;
     if (!state.all.length) setStatus("결과가 없어요. 반경을 넓히거나 기준 위치를 확인하세요.", true);
@@ -1073,10 +1019,10 @@ function renderList() {
   if (!state.places.length && state.all) {
     const canWiden = radiusMeters() < MAX_RADIUS_M;
     $("empty").innerHTML = state.all.length
-      ? `<b>다 걸러졌어요</b>제외 조건에 모두 걸렸어요.<br>
+      ? `${ICON("search-x")}<b>다 걸러졌어요</b>제외 조건에 모두 걸렸어요.<br>
          <button class="btn secondary" id="emptyClear" type="button">제외 목록 비우기</button>
          ${canWiden ? `<button class="btn" id="emptyWiden" type="button">반경 2배로 다시 찾기</button>` : ""}`
-      : `<b>결과가 없어요</b>${canWiden ? "반경을 넓혀서 다시 찾아볼까요?" : "이 반경이 최대예요. 기준 위치를 옮겨보세요."}<br>
+      : `${ICON("search-x")}<b>결과가 없어요</b>${canWiden ? "반경을 넓혀서 다시 찾아볼까요?" : "이 반경이 최대예요. 기준 위치를 옮겨보세요."}<br>
          ${canWiden ? `<button class="btn" id="emptyWiden" type="button">반경 2배로 다시 찾기</button>` : ""}`;
     $("emptyWiden") && ($("emptyWiden").onclick = widenAndSearch);
     $("emptyClear") && ($("emptyClear").onclick = () => { state.excludes.clear(); state.skips.clear(); renderTokens(); applyFilter(); });
@@ -1090,8 +1036,9 @@ function renderList() {
       <div class="c">${esc(shortCat(p.category_name))}</div>
       <div class="a">${esc(p.road_address_name || p.address_name || "")}${p.phone ? " · " + esc(p.phone) : ""}</div>
       <div class="links">
-        <a href="${p.place_url}" target="_blank" rel="noopener">카카오맵</a>
-        <button type="button" data-skip="${esc(p.place_name)}">오늘은 빼기</button>
+        <a href="${p.place_url}" target="_blank" rel="noopener">${ICON("store")}가게 정보</a>
+        <a href="${routeUrl(p)}" target="_blank" rel="noopener">${ICON("navigation")}길찾기</a>
+        <button type="button" data-skip="${esc(p.place_name)}">${ICON("ban")}오늘은 빼기</button>
       </div>`;
     c.onclick = e => { if (e.target.closest("a,button")) return; focusPlace(p); };
     c.onkeydown = e => { if (e.key === "Enter") focusPlace(p); };
@@ -1140,7 +1087,7 @@ function renderMarkers(fitBounds = false) {
     state.map.setBounds(b, 40);
   }
 }
-function focusPlace(p, scrollList = true, withDetail = true) {
+function focusPlace(p, scrollList = true) {
   state.activeId = p.id;
   document.querySelectorAll(".card").forEach(c => c.classList.toggle("active", c.dataset.id === p.id));
   refreshMarkerStyles();
@@ -1150,7 +1097,6 @@ function focusPlace(p, scrollList = true, withDetail = true) {
   state.info.setContent(`<div style="padding:8px 12px;font:500 13px Pretendard,sans-serif;white-space:nowrap"><b>${esc(p.place_name)}</b><br><span style="color:#5B635C">${esc(shortCat(p.category_name))} · ${fmtDist(p.distance)}</span></div>`);
   state.info.open(state.map, mk ? mk.m : new kakao.maps.Marker({ position: pos }));
   if (scrollList) document.querySelector(`.card[data-id="${p.id}"]`)?.scrollIntoView({ block: "nearest", behavior: "smooth" });
-  if (withDetail) openDetail(p);
 }
 
 /* ---------- Mobile bottom sheet ---------- */
@@ -1171,22 +1117,12 @@ function snapSheet(name) { sheet.snap = name; setSheetHeight(sheetSnaps()[name])
 function setSheetTab(name, { expand = true } = {}) {
   sheet.tab = name;
   document.querySelectorAll(".stabs [role=tab]").forEach(b => b.setAttribute("aria-selected", b.dataset.panel === name));
-  ["settings", "results", "detail"].forEach(n => {
-    const el = n === "detail" ? $("detail") : $(n === "settings" ? "panelSettings" : "panelResults");
-    el.classList.toggle("active", n === name);
-  });
+  ["settings", "results"].forEach(n => $(n === "settings" ? "panelSettings" : "panelResults").classList.toggle("active", n === name));
   if (isMobile() && expand && sheet.snap === "peek") snapSheet("half");
 }
 document.querySelectorAll(".stabs [role=tab]").forEach(b => b.onclick = () => {
   if (sheet.tab === b.dataset.panel && sheet.snap === "peek") { snapSheet("half"); return; }
-  if (b.dataset.panel === "detail") {
-    // Show the selected place if there is one, otherwise the empty-state hint
-    const p = detail.place || state.picked || state.places?.find(x => x.id === state.activeId);
-    if (p) { openDetail(p); return; }
-    $("detail").hidden = false; $("detail").classList.add("no-place"); $("dEmpty").hidden = false;
-  }
   setSheetTab(b.dataset.panel);
-  if (b.dataset.panel === "detail") snapSheet("full");
 });
 // Drag the sheet bar to resize (snaps to the nearest stop on release)
 $("sheetBar").addEventListener("pointerdown", e => {
@@ -1219,95 +1155,18 @@ $("sheetBar").addEventListener("pointerdown", e => {
 let resizeT = null;
 window.addEventListener("resize", () => { clearTimeout(resizeT); resizeT = setTimeout(() => { if (isMobile()) snapSheet(sheet.snap); }, 120); });
 mobileMQ.addEventListener("change", () => {
-  if (!isMobile()) { sheet.el.style.removeProperty("--sheet-h"); if ($("detail").classList.contains("no-place")) closeDetail(); ["panelSettings", "panelResults", "detail"].forEach(id => $(id).classList.remove("active")); $("panelSettings").classList.add("active"); }
+  if (!isMobile()) { sheet.el.style.removeProperty("--sheet-h"); ["panelSettings", "panelResults"].forEach(id => $(id).classList.remove("active")); $("panelSettings").classList.add("active"); }
   else setSheetTab(sheet.tab, { expand: false });
 });
 
-/* ---------- Right detail panel ---------- */
-// Kakao blocks embedding its place and route pages in iframes (X-Frame-Options), so the panel shows a
-// Roadview of the storefront (interactive map as fallback) plus links that open Kakao Map in a new tab / app.
-const detail = { place: null, rv: null, rvClient: null, mini: null, req: 0 };
-function detailCat(p) { return `${fmtDist(p.distance)} · ${travelLabel(p.distance)}`; }
-// Kakao map link: /link/from/<name>,<lat>,<lng>/to/<name>,<lat>,<lng> pre-fills both ends
+/* ---------- Links ---------- */
+// Kakao map link: /link/from/<name>,<lat>,<lng>/to/<name>,<lat>,<lng> pre-fills both ends of the route
 function routeUrl(p) {
   const to = `${encodeURIComponent(p.place_name)},${p.y},${p.x}`;
   if (!state.center) return `https://map.kakao.com/link/to/${to}`;
   const from = `${encodeURIComponent($("locHint").textContent || "출발지")},${state.center.lat},${state.center.lng}`;
   return `https://map.kakao.com/link/from/${from}/to/${to}`;
 }
-function openDetail(p) {
-  detail.place = p;
-  $("detail").setAttribute("aria-label", `${p.place_name} 상세 정보`);
-  $("dOpen").title = $("dRoute").title = p.place_name;
-  $("dCat").textContent = detailCat(p);
-  $("dAddr").innerHTML = esc(p.road_address_name || p.address_name || "") + (p.phone ? ` · <a href="tel:${esc(p.phone)}">${esc(p.phone)}</a>` : "");
-  $("dOpen").href = p.place_url;
-  $("dRoute").href = routeUrl(p);
-  $("dPick").hidden = !!(state.picked && state.picked.id === p.id);
-  const wasHidden = $("detail").hidden;
-  $("detail").hidden = false; $("splitV").hidden = false;
-  $("detail").classList.remove("no-place"); $("dEmpty").hidden = true;
-  if (isMobile()) { setSheetTab("detail"); snapSheet("full"); }
-  // wait one frame so the panel has its final size before the Roadview measures it
-  requestAnimationFrame(() => { if (wasHidden && state.map) state.map.relayout(); showRoadview(p); });
-}
-function closeDetail() {
-  $("detail").hidden = true; $("splitV").hidden = true;
-  $("detail").classList.remove("active", "no-place");
-  detail.place = null; detail.req++;
-  if (isMobile() && sheet.tab === "detail") { setSheetTab("results"); if (sheet.snap === "full") snapSheet("half"); }
-}
-function bearing(from, to) {   // degrees, 0 = north, clockwise
-  const toRad = d => d * Math.PI / 180, toDeg = r => r * 180 / Math.PI;
-  const y = Math.sin(toRad(to.lng - from.lng)) * Math.cos(toRad(to.lat));
-  const x = Math.cos(toRad(from.lat)) * Math.sin(toRad(to.lat)) - Math.sin(toRad(from.lat)) * Math.cos(toRad(to.lat)) * Math.cos(toRad(to.lng - from.lng));
-  return (toDeg(Math.atan2(y, x)) + 360) % 360;
-}
-function showMiniMap(p) {   // fallback when there is no panorama nearby: a small interactive map
-  const box = $("dStatic"), pos = new kakao.maps.LatLng(p.y, p.x);
-  $("dRoadview").hidden = true; box.hidden = false; box.innerHTML = "";
-  try {
-    detail.mini = new kakao.maps.Map(box, { center: pos, level: 3 });
-    new kakao.maps.Marker({ position: pos, map: detail.mini, image: markerImage("picked") });
-    $("dViewTag").textContent = "로드뷰 없음 · 지도"; $("dViewTag").hidden = false;
-  } catch (e) { console.warn("[점메추] mini map", e); $("dViewTag").hidden = true; }
-}
-function showRoadview(p) {
-  const box = $("dRoadview"), req = ++detail.req;
-  const pos = new kakao.maps.LatLng(p.y, p.x);
-  $("dViewTag").hidden = true;
-  $("dStatic").hidden = true; box.hidden = false;
-  try {
-    if (!detail.rvClient) detail.rvClient = new kakao.maps.RoadviewClient();
-    detail.rvClient.getNearestPanoId(pos, 150, panoId => {
-      if (req !== detail.req) return;                      // superseded by a newer request
-      if (panoId === null) { console.info("[점메추] no panorama near", p.place_name); showMiniMap(p); return; }
-      // Build a fresh Roadview each time: it measures its container on creation, so a stale instance
-      // created at a different size (or while hidden) renders as a frozen preview image.
-      try {
-        box.innerHTML = "";
-        detail.rv = new kakao.maps.Roadview(box, { panoId });
-        kakao.maps.event.addListener(detail.rv, "init", () => {
-          if (req !== detail.req) return;
-          const here = detail.rv.getPosition();
-          detail.rv.setViewpoint({ pan: bearing({ lat: here.getLat(), lng: here.getLng() }, { lat: +p.y, lng: +p.x }), tilt: 0, zoom: 0 });
-          $("dViewTag").textContent = "로드뷰 · 드래그해서 둘러보기"; $("dViewTag").hidden = false;
-        });
-      } catch (e) { console.warn("[점메추] roadview", e); showMiniMap(p); }
-    });
-  } catch (e) { console.warn("[점메추] roadview", e); showMiniMap(p); }
-}
-function relayoutDetailView() {
-  if (!detail.place) return;
-  if (detail.rv && !$("dRoadview").hidden) detail.rv.relayout();
-  if (detail.mini && !$("dStatic").hidden) { const c = detail.mini.getCenter(); detail.mini.relayout(); detail.mini.setCenter(c); }
-}
-// re-measure the view after the panel is resized (handle drag end, sheet snap, window resize) — not continuously
-let rvRelayoutT = null;
-new ResizeObserver(() => { clearTimeout(rvRelayoutT); rvRelayoutT = setTimeout(relayoutDetailView, 150); }).observe($("detail"));
-$("dClose").onclick = closeDetail;
-$("dPick").onclick = () => { if (detail.place) showPicked(detail.place); };
-document.addEventListener("keydown", e => { if (e.key === "Escape" && !$("detail").hidden) closeDetail(); });
 
 /* ---------- Drag handles (resize panes) ---------- */
 const root = document.documentElement;
@@ -1319,12 +1178,7 @@ function setMapH(px) {
   const v = Math.max(140, Math.min(total - brandH - 160, px - brandH));
   root.style.setProperty("--map-h", v + "px"); splitPrefs.mapH = v; saveSplitPrefs();
 }
-function setDetailW(px) {
-  const v = Math.max(280, Math.min(window.innerWidth * 0.6, px));
-  root.style.setProperty("--detail-w", v + "px"); splitPrefs.detailW = v; saveSplitPrefs();
-}
 if (splitPrefs.mapH) root.style.setProperty("--map-h", splitPrefs.mapH + "px");
-if (splitPrefs.detailW) root.style.setProperty("--detail-w", splitPrefs.detailW + "px");
 
 function makeDraggable(handle, { axis, get, set, reset, step, invert = false }) {
   handle.addEventListener("pointerdown", e => {
@@ -1357,13 +1211,6 @@ makeDraggable($("splitH"), {
   set: setMapH,
   reset: () => { root.style.removeProperty("--map-h"); delete splitPrefs.mapH; saveSplitPrefs(); },
 });
-makeDraggable($("splitV"), {
-  axis: "x", step: 24,
-  get: () => $("detail").getBoundingClientRect().width,
-  set: setDetailW, invert: true, // the handle sits on the panel's left edge, so dragging right narrows it
-  reset: () => { root.style.removeProperty("--detail-w"); delete splitPrefs.detailW; saveSplitPrefs(); },
-});
-
 /* ---------- Pick: slot-machine reel ---------- */
 const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
 const REEL_ITEMS = 26;         // number of names that scroll past
@@ -1381,14 +1228,13 @@ function fillTicketMeta(w) {
 function fillTicket(winner) {
   state.picked = winner;
   fillTicketMeta(winner);
-  $("tLink").href = winner.place_url;
+  $("tLink").href = winner.place_url; $("tRoute").href = routeUrl(winner);
   // recent + today's history
   state.recent = [winner.id, ...state.recent.filter(id => id !== winner.id)].slice(0, 3);
   state.history = [{ id: winner.id, place_name: winner.place_name, category_name: winner.category_name, distance: winner.distance, place_url: winner.place_url, x: winner.x, y: winner.y, road_address_name: winner.road_address_name, address_name: winner.address_name, phone: winner.phone },
     ...state.history.filter(h => h.id !== winner.id)].slice(0, 8);
   saveToday(); renderHistory(); refreshMarkerStyles();
-  // Desktop: pan the map and open the detail panel / Mobile: only pan so the ticket stays visible (detail opens via the "view detail" button)
-  focusPlace(winner, false, !isMobile());
+  focusPlace(winner, false);   // pan the map to the winner, keep the list where it is
 }
 function setTicketState(st) { $("ticket").dataset.state = st; }
 function showPicked(winner) {
@@ -1451,7 +1297,6 @@ function pick(excludeId) {
   reelRaf = requestAnimationFrame(frame);
 }
 $("pick").onclick = () => pick();
-$("tDetail").onclick = () => { if (state.picked && !rolling) openDetail(state.picked); };
 $("tReroll").onclick = () => pick(state.picked?.id);
 $("tSkip").onclick = () => {
   if (!state.picked) return;
@@ -1478,7 +1323,7 @@ function toast(msg) { const t = $("toast"); t.textContent = msg; t.classList.add
 async function sharePicked() {
   const w = state.picked; if (!w) return;
   const link = w.place_url;
-  const text = `오늘 점심은 ${w.place_name} 🎉\n${shortCat(w.category_name)} · ${fmtDist(w.distance)} · ${travelLabel(w.distance)}\n${link}`;
+  const text = `오늘 점심은 ${w.place_name}!\n${shortCat(w.category_name)} · ${fmtDist(w.distance)} · ${travelLabel(w.distance)}\n${link}`;
   try {
     if (navigator.share) { await navigator.share({ title: `오늘 점심: ${w.place_name}`, text, url: link }); return; }
     await navigator.clipboard.writeText(text); toast("복사했어요");
