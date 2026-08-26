@@ -149,6 +149,7 @@
 
   /* ---------- Kakao login modal ---------- */
   .modal { position: fixed; inset: 0; z-index: 200; background: rgba(0, 0, 0, .55); display: flex; align-items: center; justify-content: center; padding: 24px; }
+  .modal[hidden] { display: none; }   /* the class display would otherwise beat the hidden attribute */
   .modal-card {
     background: var(--paper); border: 1px solid var(--line); border-radius: 8px;
     padding: 28px 26px 20px; max-width: 340px; width: 100%; text-align: center;
@@ -164,7 +165,7 @@
   }
   .kakao-btn:hover { filter: brightness(.96); }
   .kakao-btn .ksym { width: 18px; height: 18px; flex: none; }
-  .gbtn-wrap { margin-top: 10px; display: flex; justify-content: center; min-height: 40px; }
+  .gbtn-wrap { margin-top: 10px; display: flex; justify-content: center; min-height: 40px; max-width: 100%; overflow: hidden; }
   .modal-card .linkbtn { margin-top: 14px; }
 
   /* ---------- Star ratings on cards ---------- */
@@ -232,6 +233,9 @@
     color: var(--ink-2); opacity: .7; text-decoration: none; white-space: nowrap;
   }
   .bmc:hover { opacity: 1; text-decoration: underline; text-underline-offset: 3px; }
+  .auth-line { margin-top: 10px; text-align: center; font-size: 11.5px; color: var(--ink-2); }
+  .auth-line button { border: 0; background: none; padding: 0; font: inherit; color: var(--ink-2); text-decoration: underline; text-underline-offset: 2px; cursor: pointer; }
+  .auth-line button:hover { color: var(--ink); }
   .legal { margin-top: 6px; text-align: center; font-size: 10.5px; }
   .legal a { color: var(--ink-2); opacity: .55; text-decoration: none; }
   .legal a:hover { opacity: 1; text-decoration: underline; text-underline-offset: 2px; }
@@ -672,6 +676,7 @@
       <div class="actions">
         <button class="btn" id="search" disabled><svg class="ic" aria-hidden="true"><use href="#i-search"/></svg><span id="searchLabel">이 조건으로 찾기</span></button>
         <div class="status" id="status" hidden></div>
+        <div class="auth-line" id="authLine"></div>
         <a class="bmc" href="https://buymeacoffee.com/td.junopark" target="_blank" rel="noopener">☕ 개발자에게 커피 한 잔</a>
         <div class="legal"><a href="/privacy.html">개인정보처리방침</a> · <a href="/terms.html">이용약관</a></div>
       </div>
@@ -1665,14 +1670,20 @@ const AUTH_KEY = "jmc-auth", NUDGE_KEY = "jmc-login-nudge";
 function authData() { return loadJSON(AUTH_KEY, null); }
 function isLoggedIn() { const a = authData(); return !!(a && a.access && Date.now() < a.exp); }
 function saveAuth(t) {
-  saveJSON(AUTH_KEY, { provider: "kakao", access: t.access_token, refresh: t.refresh_token || (authData() || {}).refresh,
+  saveJSON(AUTH_KEY, { provider: "kakao", who: "카카오 계정", access: t.access_token,
+    refresh: t.refresh_token || (authData() || {}).refresh,
     exp: Date.now() + Math.max(60, (t.expires_in || 21600) - 60) * 1000 });
 }
 function saveGoogleAuth(cred) {   // cred is a Google ID token (JWT, ~1h lifetime, no refresh)
-  let exp = Date.now() + 3300 * 1000;
-  try { exp = JSON.parse(atob(cred.split(".")[1].replace(/-/g, "+").replace(/_/g, "/"))).exp * 1000 - 60000; } catch {}
-  saveJSON(AUTH_KEY, { provider: "google", access: cred, exp });
+  let exp = Date.now() + 3300 * 1000, who = "Google 계정";
+  try {
+    const p = JSON.parse(atob(cred.split(".")[1].replace(/-/g, "+").replace(/_/g, "/")));
+    exp = p.exp * 1000 - 60000;
+    who = p.name || p.email || who;
+  } catch {}
+  saveJSON(AUTH_KEY, { provider: "google", who, access: cred, exp });
 }
+let gisInited = false;
 function initGoogleBtn(tries = 0) {
   if (!window.google || !google.accounts) { if (tries < 40) setTimeout(() => initGoogleBtn(tries + 1), 250); return; }
   google.accounts.id.initialize({ client_id: GOOGLE_CLIENT_ID, callback: res => {
@@ -1680,9 +1691,32 @@ function initGoogleBtn(tries = 0) {
     saveGoogleAuth(res.credential);
     $("loginModal").hidden = true;
     toast("Google 로그인 완료!");
-    applyFilter(); fetchRatings();
+    updateAuthLine(); applyFilter(); fetchRatings();
   }});
-  google.accounts.id.renderButton($("googleBtn"), { theme: "outline", size: "large", width: 280, text: "signin_with", locale: "ko" });
+  gisInited = true;
+  renderGoogleBtn();   // in case the modal is already open
+}
+function renderGoogleBtn() {
+  // Render only while the modal is visible: the width has to be measured from the
+  // live container, otherwise the button overflows the card
+  if (!gisInited || $("loginModal").hidden) return;
+  const w = Math.min(360, Math.max(180, $("googleBtn").clientWidth || 280));
+  $("googleBtn").innerHTML = "";
+  google.accounts.id.renderButton($("googleBtn"), { theme: "outline", size: "large", width: w, text: "signin_with", locale: "ko" });
+}
+function logout() {
+  localStorage.removeItem(AUTH_KEY);
+  try { window.google && google.accounts && google.accounts.id.disableAutoSelect(); } catch {}
+  updateAuthLine(); applyFilter();
+  toast("로그아웃했어요");
+}
+function updateAuthLine() {
+  const a = authData(), el = $("authLine");
+  el.innerHTML = isLoggedIn()
+    ? `${esc(a.who || "로그인")} · <button type="button" id="logoutBtn">로그아웃</button>`
+    : `<button type="button" id="loginOpenBtn">로그인하고 별점 보기</button>`;
+  const lo = document.getElementById("logoutBtn"); if (lo) lo.onclick = logout;
+  const li = document.getElementById("loginOpenBtn"); if (li) li.onclick = showLoginModal;
 }
 function kakaoLogin() {
   if (!window.Kakao) { setStatus("카카오 로그인 SDK를 불러오지 못했어요.", true); return; }
@@ -1706,7 +1740,7 @@ async function authFetch(url, opts = {}) {
   const call = () => fetch(url, { ...opts, headers: { ...(opts.headers || {}), Authorization: "Bearer " + (authData() || {}).access } });
   let res = await call();
   if (res.status === 401 && await refreshAuth()) res = await call();
-  if (res.status === 401) localStorage.removeItem(AUTH_KEY);   // session truly over → back to logged-out UI
+  if (res.status === 401) { localStorage.removeItem(AUTH_KEY); updateAuthLine(); }   // session truly over → back to logged-out UI
   return res;
 }
 async function handleAuthRedirect() {
@@ -1721,14 +1755,15 @@ async function handleAuthRedirect() {
   try {
     const r = await fetch(WORKER_BASE + "/auth/token", { method: "POST",
       headers: { "Content-Type": "application/json" }, body: JSON.stringify({ code, redirect_uri: REDIRECT_URI }) });
-    if (r.ok) { saveAuth(await r.json()); toast("카카오 로그인 완료!"); applyFilter(); fetchRatings(); }
+    if (r.ok) { saveAuth(await r.json()); toast("카카오 로그인 완료!"); updateAuthLine(); applyFilter(); fetchRatings(); }
     else toast("로그인에 실패했어요");
   } catch { toast("로그인에 실패했어요"); }
 }
-function showLoginModal() { $("loginModal").hidden = false; }
+function showLoginModal() { $("loginModal").hidden = false; renderGoogleBtn(); }
 $("kakaoLoginBtn").onclick = kakaoLogin;
 $("skipLoginBtn").onclick = () => { $("loginModal").hidden = true; saveJSON(NUDGE_KEY, todayStr()); };
 $("loginModal").addEventListener("click", e => { if (e.target === $("loginModal")) $("skipLoginBtn").click(); });
+document.addEventListener("keydown", e => { if (e.key === "Escape" && !$("loginModal").hidden) $("skipLoginBtn").click(); });
 function maybeNudgeLogin() {
   if (!isLoggedIn() && loadJSON(NUDGE_KEY, "") !== todayStr()) showLoginModal();
 }
@@ -1793,6 +1828,7 @@ loadPersisted();
 renderTokens(); updateRadiusHint(); renderHistory();
 if (window.Kakao && !Kakao.isInitialized()) Kakao.init(KAKAO_JS_KEY);
 initGoogleBtn();
+updateAuthLine();
 handleAuthRedirect().then(maybeNudgeLogin);
 if (isMobile()) setSheetTab("settings", { expand: false });
 loadSdk(KAKAO_JS_KEY);
