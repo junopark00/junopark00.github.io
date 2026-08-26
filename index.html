@@ -44,6 +44,9 @@
     --green: #2F5D46;            /* filled chips and accent backgrounds */
     --green-text: #74C494;       /* green for text */
     --yellow: #F2C63B;
+    --chip-want-bg: var(--green);      /* dark mode: filled chips read well */
+    --chip-want-border: var(--green);
+    --chip-want-ink: #fff;
     --map-bg: #22271F;
     --ticket-ink: #1B1F1A;       /* text on the yellow ticket stays dark regardless of theme */
     --radius: 4px;
@@ -66,6 +69,9 @@
     --red-text: #A8231B;
     --green: #2F5D46;
     --green-text: #2F5D46;
+    --chip-want-bg: #E7EFE9;           /* light mode: soft tint instead of a heavy fill */
+    --chip-want-border: #BFD3C6;
+    --chip-want-ink: #2F5D46;
     --map-bg: #E3E8E0;
   } }
   * { box-sizing: border-box; }
@@ -347,7 +353,7 @@
     transition: background .12s, border-color .12s, color .12s;
   }
   .chip { touch-action: none; user-select: none; -webkit-user-select: none; display: inline-flex; align-items: center; gap: 4px; }
-  .chip.want { background: var(--green); border-color: var(--green); color: #fff; }
+  .chip.want { background: var(--chip-want-bg); border-color: var(--chip-want-border); color: var(--chip-want-ink); }
   .chip.no { border-style: dashed; border-color: var(--red-text); color: var(--red-text); }
   .chip.hist { background: var(--paper); border-color: var(--line); color: var(--ink); font-size: 12.5px; padding: 4px 9px; font-weight: 500; }
   .chip.hist.cur { border-color: var(--yellow); background: rgba(242,198,59,.18); }
@@ -498,6 +504,10 @@
   .ticket .meta span + span::before { content: " · "; color: rgba(27,31,26,.5); }
   .ticket .actions { display: flex; flex-direction: column; gap: 8px; }
   .ticket .actions .btn { padding: 10px 14px; white-space: nowrap; text-align: center; }
+  /* 5 actions → 다시 뽑기 full width on top, the rest in a 2×2 grid */
+  .ticket .t-done { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 8px; align-content: start; }
+  .ticket .t-done .btn { padding: 9px 10px; font-size: 13px; min-width: 0; }
+  .ticket .t-done .btn:first-child { grid-column: 1 / -1; }
   .ticket .btn.secondary { background: #fff; border-color: #fff; color: #1B1F1A; }
   .ticket .btn.ghost { border-color: rgba(0,0,0,.25); color: var(--ticket-ink); background: transparent; }
   .ticket .btn.ghost:hover { background: rgba(0,0,0,.08); }
@@ -626,10 +636,8 @@
     .ticket .t-idle .btn.big { width: 100%; }
     .ticket .name { font-size: 28px; }
     .ticket .t-done { padding-left: 0; border-left: 0; padding-top: 12px; border-top: 1px dashed rgba(27,31,26,.35); }
-    .ticket .t-done { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 8px; }
     .ticket[data-state="idle"] .t-done { display: none; }
-    .ticket .t-done .btn { padding: 10px 6px; font-size: 13px; white-space: normal; min-width: 0; line-height: 1.25; }
-    .ticket .t-done .btn:last-child:nth-child(odd) { grid-column: 1 / -1; }
+    .ticket .t-done .btn { padding: 10px 6px; font-size: 13px; white-space: normal; line-height: 1.25; }
     .history { flex-wrap: wrap; }
     .list { grid-template-columns: 1fr; }
     .card { padding: 12px 14px; }
@@ -733,9 +741,9 @@
           <button class="btn red big" id="pick" type="button" disabled><svg class="ic" aria-hidden="true"><use href="#i-dices"/></svg>뽑기</button>
         </div>
         <div class="actions t-done">
-          <a class="btn secondary" id="tLink" href="#" target="_blank" rel="noopener"><svg class="ic" aria-hidden="true"><use href="#i-store"/></svg>가게 정보</a>
+          <button class="btn secondary" id="tReroll" type="button"><svg class="ic" aria-hidden="true"><use href="#i-refresh-cw"/></svg>다시 뽑기</button>
+          <a class="btn ghost" id="tLink" href="#" target="_blank" rel="noopener"><svg class="ic" aria-hidden="true"><use href="#i-store"/></svg>가게 정보</a>
           <a class="btn ghost" id="tRoute" href="#" target="_blank" rel="noopener"><svg class="ic" aria-hidden="true"><use href="#i-navigation"/></svg>길찾기</a>
-          <button class="btn ghost" id="tReroll" type="button"><svg class="ic" aria-hidden="true"><use href="#i-refresh-cw"/></svg>다시 뽑기</button>
           <button class="btn ghost" id="tSkip" type="button"><svg class="ic" aria-hidden="true"><use href="#i-ban"/></svg>여긴 빼고</button>
           <button class="btn ghost" id="tShare" type="button"><svg class="ic" aria-hidden="true"><use href="#i-share-2"/></svg>공유</button>
         </div>
