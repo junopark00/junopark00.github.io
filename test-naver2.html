@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>네이버 GraphQL 브라우저 직접 호출 테스트</title>
+<style>
+  body { font-family: sans-serif; margin: 16px; background: #f4f4f4; }
+  pre { background: #fff; border: 1px solid #ddd; border-radius: 8px; padding: 12px; white-space: pre-wrap; word-break: break-all; font-size: 12px; }
+  b.ok { color: #1a7f37; } b.bad { color: #b3261e; }
+</style>
+</head>
+<body>
+<p>이 페이지가 열린 주소(<b id="origin"></b>)에서 브라우저가 <code>pcmap-api.place.naver.com/graphql</code>을 직접 호출할 수 있는지 확인해요.</p>
+<p id="verdict">확인 중…</p>
+<pre id="out"></pre>
+<script>
+document.getElementById("origin").textContent = location.origin;
+const q = "개미집 상암동", x = "126.89", y = "37.58";
+const body = [{
+  operationName: "getPlacesList",
+  variables: { input: { query: q, businessType: "place", start: 1, display: 5, adult: false, spq: false, queryRank: "", x, y, deviceType: "mobile", filterKtOtherLocal: false }, isNmap: false, isBounds: false },
+  query: `query getPlacesList($input: PlaceListInput, $isNmap: Boolean!, $isBounds: Boolean!) {
+  placeList(input: $input) {
+    businesses { total items { id name category distance markerId @include(if: $isNmap) newBusinessHours { status description __typename } __typename } __typename }
+    optionsForMap @include(if: $isBounds) { maxZoom __typename }
+    __typename
+  }
+}`,
+}];
+(async () => {
+  const out = document.getElementById("out"), v = document.getElementById("verdict");
+  try {
+    const r = await fetch("https://pcmap-api.place.naver.com/graphql", {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
+    });
+    const txt = await r.text();
+    out.textContent = `HTTP ${r.status}\n` + txt.slice(0, 1500);
+    let items = [];
+    try { const j = JSON.parse(txt); items = (Array.isArray(j) ? j[0] : j)?.data?.placeList?.businesses?.items || []; } catch {}
+    v.innerHTML = items.length
+      ? `<b class="ok">성공</b> — 브라우저에서 직접 호출 가능. 첫 결과: ${items[0].name} (id ${items[0].id}, ${items[0].distance})`
+      : `<b class="bad">응답은 왔지만 결과 없음</b> — 아래 본문을 확인`;
+  } catch (e) {
+    out.textContent = String(e);
+    v.innerHTML = `<b class="bad">실패</b> — ${e.message}. "Failed to fetch"면 CORS로 막힌 거예요 (F12 콘솔에 자세한 사유).`;
+  }
+})();
+</script>
+</body>
+</html>
