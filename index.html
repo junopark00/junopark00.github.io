@@ -225,10 +225,18 @@
   .linkbtn { border: 0; background: none; padding: 0; font-size: 12px; color: var(--ink-2); text-decoration: underline; text-underline-offset: 3px; font-weight: 500; letter-spacing: 0; text-transform: none; }
   .linkbtn:hover { color: var(--ink); }
 
-  /* Location search box with a result dropdown */
-  .loc-search { position: relative; display: flex; align-items: center; gap: 8px; }
-  .loc-search > .ic { color: var(--ink-2); margin-left: 4px; }
-  .loc-search input { flex: 1; min-width: 0; padding: 7px 10px; font-size: 13px; border-radius: 3px; }
+  /* Location row: pin icon | current label (click → search input) | locate button */
+  .loc-row { position: relative; display: flex; align-items: center; gap: 8px; }
+  .loc-row > .ic { color: var(--ink-2); flex: none; }
+  .loc-label {
+    flex: 1; min-width: 0; border: 0; background: none; padding: 7px 0; cursor: pointer;
+    font: inherit; font-size: 13px; color: var(--ink); text-align: left;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .loc-label span { border-bottom: 1px dashed var(--line); padding-bottom: 1px; }
+  .loc-label:hover span { border-bottom-color: var(--ink-2); }
+  .loc-label span:empty::before { content: "위치를 검색하거나 지도를 클릭하세요"; color: var(--ink-2); }
+  .loc-row input { flex: 1; min-width: 0; padding: 7px 10px; font-size: 13px; border-radius: 3px; }
   .loc-results {
     position: absolute; top: calc(100% + 4px); left: 0; right: 0; z-index: 30;
     background: var(--paper); border: 1px solid var(--line); border-radius: var(--radius);
@@ -583,10 +591,11 @@
     <section class="panel settings active" id="panelSettings" aria-label="검색 조건">
      <div class="settings-body">
       <div class="field">
-        <div class="label"><span><svg class="ic" aria-hidden="true"><use href="#i-map-pin"/></svg>내 위치 <small id="locHint"></small></span><button class="btn ghost" id="geo" style="padding:4px 10px;font-size:12px"><svg class="ic" aria-hidden="true"><use href="#i-locate"/></svg><span id="geoLabel">현재 위치 잡기</span></button></div>
-        <div class="loc-search">
-          <svg class="ic" aria-hidden="true"><use href="#i-search"/></svg>
-          <input type="text" id="locInput" placeholder="주소·장소 검색 후 Enter (예: 강남역)" aria-label="위치 검색" autocomplete="off" />
+        <div class="loc-row">
+          <svg class="ic" aria-hidden="true"><use href="#i-map-pin"/></svg>
+          <button type="button" class="loc-label" id="locDisplay" title="클릭해서 주소·장소 검색"><span id="locHint"></span></button>
+          <input type="text" id="locInput" placeholder="주소·장소 검색 (예: 강남역)" aria-label="위치 검색" autocomplete="off" enterkeyhint="search" hidden />
+          <button class="btn ghost" id="geo" style="padding:6px 9px" aria-label="현재 위치 잡기" title="현재 위치 잡기"><svg class="ic" aria-hidden="true"><use href="#i-locate"/></svg></button>
           <div class="loc-results" id="locResults" hidden></div>
         </div>
       </div>
@@ -917,13 +926,13 @@ async function autoLocate() {
 function locate() {
   if (!navigator.geolocation) { setStatus("이 브라우저는 위치를 지원하지 않아요. 지도를 클릭해 기준점을 정하세요.", true); return; }
   if (!state.map) { setStatus("지도가 아직 준비되지 않았어요.", true); return; }
-  const geo = $("geo"); geo.disabled = true; $("geoLabel").textContent = "확인 중…";
+  const geo = $("geo"); geo.disabled = true;
   navigator.geolocation.getCurrentPosition(
-    p => { setCenter(p.coords.latitude, p.coords.longitude, "현재 위치"); saveLoc(p.coords.latitude, p.coords.longitude); setStatus(""); geo.disabled = false; $("geoLabel").textContent = "현재 위치 잡기"; },
+    p => { setCenter(p.coords.latitude, p.coords.longitude, "현재 위치"); saveLoc(p.coords.latitude, p.coords.longitude); setStatus(""); geo.disabled = false; },
     err => {
       const msg = { 1: "위치 권한이 거부됐어요. 주소창 자물쇠 아이콘에서 허용할 수 있어요.", 2: "위치를 알아낼 수 없어요.", 3: "위치 확인이 너무 오래 걸려요." }[err.code] || "위치를 못 잡았어요.";
       setStatus(msg + " 지도를 클릭해 기준점을 정할 수도 있어요.", true);
-      geo.disabled = false; $("geoLabel").textContent = "현재 위치 잡기";
+      geo.disabled = false;
     },
     { enableHighAccuracy: false, maximumAge: 5 * 60 * 1000, timeout: 10000 }
   );
@@ -949,11 +958,21 @@ function searchLocation(q) {
     });
   });
 }
+// The label doubles as the search trigger: click → input appears, blur/pick → label returns
+function locSearchMode(on) {
+  $("locDisplay").hidden = on;
+  $("locInput").hidden = !on;
+  if (on) { $("locInput").value = ""; $("locInput").focus(); }
+  else $("locResults").hidden = true;
+}
+$("locDisplay").onclick = () => locSearchMode(true);
+let locTimer = null, locQuerySeq = 0;
 async function runLocSearch() {
   const q = $("locInput").value.trim();
-  if (!q) return;
-  if (!state.ps || !state.geocoder) { setStatus("지도가 아직 준비되지 않았어요.", true); return; }
+  if (q.length < 2 || !state.ps || !state.geocoder) return;
+  const seq = ++locQuerySeq;
   const items = await searchLocation(q);
+  if (seq !== locQuerySeq || $("locInput").hidden) return;   // stale response or search already closed
   const seen = new Set();
   const uniq = items.filter(i => i.lat && i.lng && !seen.has(i.name + "|" + i.addr) && seen.add(i.name + "|" + i.addr)).slice(0, 6);
   const box = $("locResults");
@@ -963,24 +982,35 @@ async function runLocSearch() {
     const b = document.createElement("button");
     b.type = "button";
     b.innerHTML = `<b>${esc(it.name)}</b>${it.addr && it.addr !== it.name ? `<span>${esc(it.addr)}</span>` : ""}`;
-    // mousedown fires before the input's blur, so the click isn't lost when the dropdown closes
+    // mousedown fires before the input's blur, so the pick isn't lost when the dropdown closes
     b.onmousedown = e => { e.preventDefault(); pickLocation(it); };
     box.appendChild(b);
   });
   box.hidden = false;
 }
 function pickLocation(it) {
-  $("locResults").hidden = true;
-  $("locInput").value = it.name;
+  locSearchMode(false);
   setCenter(it.lat, it.lng, it.name, false);
   saveLoc(it.lat, it.lng);
   setStatus("");
 }
-$("locInput").addEventListener("keydown", e => {
-  if (e.key === "Enter") { e.preventDefault(); runLocSearch(); }
-  if (e.key === "Escape") $("locResults").hidden = true;
+$("locInput").addEventListener("input", () => {
+  clearTimeout(locTimer);
+  if ($("locInput").value.trim().length < 2) { $("locResults").hidden = true; return; }
+  locTimer = setTimeout(runLocSearch, 350);   // search as you type
 });
-$("locInput").addEventListener("blur", () => setTimeout(() => { $("locResults").hidden = true; }, 150));
+$("locInput").addEventListener("keydown", e => {
+  if (e.isComposing) return;                  // ignore the extra Enter the Korean IME fires mid-composition
+  if (e.key === "Enter") {
+    e.preventDefault();                       // keep mobile keyboards from jumping to the next input
+    clearTimeout(locTimer);
+    const first = $("locResults").querySelector("button");
+    if (!$("locResults").hidden && first) first.dispatchEvent(new MouseEvent("mousedown"));
+    else runLocSearch();
+  }
+  if (e.key === "Escape") locSearchMode(false);
+});
+$("locInput").addEventListener("blur", () => setTimeout(() => locSearchMode(false), 150));
 
 function setCenter(lat, lng, label, resolveLabel = true) {
   state.center = { lat, lng };
