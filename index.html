@@ -1675,14 +1675,17 @@ function saveAuth(t) {
     refresh: t.refresh_token || (authData() || {}).refresh,
     exp: Date.now() + Math.max(60, (t.expires_in || 21600) - 60) * 1000 });
 }
-function saveGoogleAuth(cred) {   // cred is a Google ID token (JWT, ~1h lifetime, no refresh)
-  let exp = Date.now() + 3300 * 1000, who = "Google 계정";
+// atob() alone mangles UTF-8 (Korean names) — decode the base64 bytes properly
+function jwtPayload(jwt) {
   try {
-    const p = JSON.parse(atob(cred.split(".")[1].replace(/-/g, "+").replace(/_/g, "/")));
-    exp = p.exp * 1000 - 60000;
-    who = p.name || p.email || who;
-  } catch {}
-  saveJSON(AUTH_KEY, { provider: "google", who, access: cred, exp });
+    const b64 = jwt.split(".")[1].replace(/-/g, "+").replace(/_/g, "/");
+    return JSON.parse(new TextDecoder().decode(Uint8Array.from(atob(b64), c => c.charCodeAt(0))));
+  } catch { return null; }
+}
+function saveGoogleAuth(cred) {   // cred is a Google ID token (JWT, ~1h lifetime, no refresh)
+  const p = jwtPayload(cred) || {};
+  saveJSON(AUTH_KEY, { provider: "google", who: p.name || p.email || "Google 계정", access: cred,
+    exp: (p.exp ? p.exp * 1000 : Date.now() + 3300 * 1000) - 60000 });
 }
 let gisInited = false;
 function initGoogleBtn(tries = 0) {
@@ -1829,6 +1832,7 @@ loadPersisted();
 renderTokens(); updateRadiusHint(); renderHistory();
 if (window.Kakao && !Kakao.isInitialized()) Kakao.init(KAKAO_JS_KEY);
 initGoogleBtn();
+{ const a = authData(); if (a && a.provider === "google" && a.access) saveGoogleAuth(a.access); }   // re-derive names saved with the old broken decoder
 updateAuthLine();
 handleAuthRedirect().then(maybeNudgeLogin);
 if (isMobile()) setSheetTab("settings", { expand: false });
