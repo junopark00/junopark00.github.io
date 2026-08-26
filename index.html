@@ -168,6 +168,12 @@
   }
   .brand p { margin: 8px 0 0; color: var(--ink-2); font-family: var(--font-small); font-size: 13px; padding-top: 8px; border-top: 1px dashed var(--line); }
   .brand-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+  .bmc {
+    display: block; margin-top: 10px; text-align: center;
+    font-family: var(--font-small); font-size: 11.5px; font-weight: 500;
+    color: var(--ink-2); opacity: .7; text-decoration: none; white-space: nowrap;
+  }
+  .bmc:hover { opacity: 1; text-decoration: underline; text-underline-offset: 3px; }
 
   .field { display: flex; flex-direction: column; gap: 8px; }
   .label {
@@ -189,7 +195,7 @@
     background: var(--paper-2);
   }
   input:focus, select:focus { border-color: var(--ink); background: var(--paper); }
-  .mode { flex: 1; }
+  .mode-fixed { flex: 1; display: flex; align-items: center; padding: 10px 0; font-weight: 600; }
   .minutes { position: relative; width: 108px; flex: none; display: block; }
   .minutes input { padding-right: 34px; text-align: right; font-family: var(--font-small); font-weight: 700; }
   .minutes span { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); color: var(--ink-2); font-size: 13px; pointer-events: none; }
@@ -209,7 +215,6 @@
   .chip { touch-action: none; user-select: none; -webkit-user-select: none; display: inline-flex; align-items: center; gap: 4px; }
   .chip.want { background: var(--green); border-color: var(--green); color: #fff; }
   .chip.no { border-style: dashed; border-color: var(--red-text); color: var(--red-text); }
-  .chip.no.skip { border-style: dotted; opacity: .85; }          /* store skipped for today only */
   .chip.hist { background: var(--paper); border-color: var(--line); color: var(--ink); font-size: 12.5px; padding: 4px 9px; font-weight: 500; }
   .chip.hist.cur { border-color: var(--yellow); background: rgba(242,198,59,.18); }
   .chip .rm { display: inline-flex; opacity: .55; line-height: 1; padding: 0 0 0 2px; }
@@ -539,9 +544,7 @@
       <div class="field">
         <div class="label"><span><svg class="ic" aria-hidden="true"><use href="#i-footprints"/></svg>반경</span><small id="radiusHint"></small></div>
         <div class="row">
-          <select id="mode" class="mode" aria-label="이동 수단">
-            <option value="walk">걸어서</option>
-          </select>
+          <span class="mode-fixed">걸어서</span>
           <label class="minutes"><input type="number" id="minutes" value="5" min="1" max="20" step="1" aria-label="분" /><span>분</span></label>
         </div>
       </div>
@@ -567,6 +570,7 @@
       <div class="actions">
         <button class="btn" id="search" disabled><svg class="ic" aria-hidden="true"><use href="#i-search"/></svg><span id="searchLabel">이 조건으로 찾기</span></button>
         <div class="status" id="status" hidden></div>
+        <a class="bmc" href="https://buymeacoffee.com/td.junopark" target="_blank" rel="noopener">☕ 개발자에게 커피 한 잔</a>
       </div>
     </section>
 
@@ -645,7 +649,7 @@ const todayStr = () => { const d = new Date(); return `${d.getFullYear()}-${d.ge
 function loadJSON(k, d) { try { return JSON.parse(localStorage.getItem(k)) ?? d; } catch { return d; } }
 function saveJSON(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} }
 function savePrefs() {
-  saveJSON(PREFS_KEY, { genres: [...state.genres], excludes: [...state.excludes], mode: $("mode").value, minutes: $("minutes").value });
+  saveJSON(PREFS_KEY, { genres: [...state.genres], excludes: [...state.excludes], minutes: $("minutes").value });
 }
 function saveToday() { saveJSON(TODAY_KEY, { date: todayStr(), skips: [...state.skips], history: state.history, recent: state.recent }); }
 function loadPersisted() {
@@ -653,7 +657,6 @@ function loadPersisted() {
   if (pr) {
     if (Array.isArray(pr.genres)) state.genres = new Set(pr.genres);
     if (Array.isArray(pr.excludes)) state.excludes = new Set(pr.excludes);
-    if (pr.mode && MODES[pr.mode]) $("mode").value = pr.mode;
     if (pr.minutes >= 1) $("minutes").value = clampMinutes(pr.minutes);
   }
   const td = loadJSON(TODAY_KEY, null);
@@ -772,7 +775,7 @@ const MODES = {
 };
 const MAX_MINUTES = 20;   // 걸어서 20분 = 반경 ~1.34km 상한
 function clampMinutes(v) { return Math.max(1, Math.min(MAX_MINUTES, parseFloat(v) || 1)); }
-function currentMode() { return MODES[$("mode").value] || MODES.walk; }
+function currentMode() { return MODES.walk; }
 function rawRadius() { return currentMode().mpm * clampMinutes($("minutes").value); }
 function radiusMeters() {
   const m = Math.round(rawRadius() / 10) * 10;
@@ -793,9 +796,7 @@ $("minutes").addEventListener("input", () => {
   if (parseFloat(el.value) > MAX_MINUTES) el.value = MAX_MINUTES;
   updateRadiusHint(); markDirty(); savePrefs();
 });
-$("mode").addEventListener("change", () => { markDirty(); savePrefs(); });
 $("minutes").addEventListener("blur", () => { const v = clampMinutes($("minutes").value); if (String(v) !== $("minutes").value) { $("minutes").value = v; updateRadiusHint(); } });
-$("mode").addEventListener("change", updateRadiusHint);
 
 /* ---------- Status display ---------- */
 // Shown only for errors; progress is conveyed through the button label
@@ -828,6 +829,7 @@ function initMap() {
   const fallback = { lat: 37.5665, lng: 126.9780 }; // Seoul City Hall
   state.map = new kakao.maps.Map($("map"), { center: new kakao.maps.LatLng(fallback.lat, fallback.lng), level: 4 });
   state.ps = new kakao.maps.services.Places();
+  state.geocoder = new kakao.maps.services.Geocoder();
   state.info = new kakao.maps.InfoWindow({ zIndex: 2, removable: true });
   kakao.maps.event.addListener(state.map, "click", e => setCenter(e.latLng.getLat(), e.latLng.getLng(), "지도에서 찍은 지점"));
   // Re-layout the map when the pane is resized so it doesn't distort
@@ -888,8 +890,22 @@ function setCenter(lat, lng, label) {
     });
   } else state.centerMarker.setPosition(ll);
   $("locHint").textContent = label;
+  resolvePlaceLabel(lat, lng);
   drawCircle(); markDirty();
   if (state.picked) $("tRoute").href = routeUrl(state.picked);
+}
+// Replace the generic label ("현재 위치" etc.) with the building name or address at that point.
+// A sequence counter drops stale responses when the marker is dragged quickly.
+let locSeq = 0;
+function resolvePlaceLabel(lat, lng) {
+  if (!state.geocoder) return;
+  const seq = ++locSeq;
+  state.geocoder.coord2Address(lng, lat, (res, status) => {
+    if (seq !== locSeq || status !== kakao.maps.services.Status.OK || !res.length) return;
+    const road = res[0].road_address, jibun = res[0].address;
+    const name = (road && road.building_name) || (road && road.address_name) || (jibun && jibun.address_name);
+    if (name) { $("locHint").textContent = name; if (state.picked) $("tRoute").href = routeUrl(state.picked); }
+  });
 }
 function drawCircle() {
   if (!state.map || !state.center) return;
