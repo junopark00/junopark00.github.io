@@ -937,20 +937,53 @@ function sdkPaged(label, opts, fn) {
   });
 }
 
+// Kakao caps every query at MAX_PAGES×15 results, so a saturated query only ever
+// shows the same subset no matter the radius. Two countermeasures:
+//   - sort=accuracy instead of distance, so the capped subset isn't always the nearest 45
+//   - when a query saturates, re-run it over 7 half-radius sub-circles (center + hex ring)
+const PAGE_CAP = MAX_PAGES * 15;
+function haversine(lat1, lng1, lat2, lng2) {
+  const rad = Math.PI / 180, R = 6371000;
+  const a = Math.sin((lat2 - lat1) * rad / 2) ** 2 +
+    Math.cos(lat1 * rad) * Math.cos(lat2 * rad) * Math.sin((lng2 - lng1) * rad / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(a));
+}
+// 6 centers at distance r·√3/2: with radius r/2 they tile the original circle exactly
+function subCenters(lat, lng, r) {
+  const d = r * Math.sqrt(3) / 2;
+  return [0, 60, 120, 180, 240, 300].map(deg => {
+    const t = deg * Math.PI / 180;
+    return [lat + (d * Math.cos(t)) / 111320, lng + (d * Math.sin(t)) / (111320 * Math.cos(lat * Math.PI / 180))];
+  });
+}
+function searchJob(q, lat, lng, r) {
+  if (SEARCH_PROXY || KAKAO_REST_KEY) {
+    const base = { x: lng, y: lat, radius: r, sort: "accuracy", size: 15, category_group_code: "FD6" };
+    return q === null ? restPaged("category.json", base) : restPaged("keyword.json", { ...base, query: q });
+  }
+  const opts = { location: new kakao.maps.LatLng(lat, lng), radius: r, size: 15, sort: kakao.maps.services.SortBy.ACCURACY };
+  return q === null
+    ? sdkPaged("전체 음식점", opts, cb => state.ps.categorySearch("FD6", cb, opts))
+    : sdkPaged(q, opts, cb => state.ps.keywordSearch(q, cb, { ...opts, category_group_code: "FD6" }));
+}
+async function searchArea(q, lat, lng, r, depth = 0) {
+  const acc = await searchJob(q, lat, lng, r);
+  if (acc.length < PAGE_CAP || depth >= 1 || r <= 200) return acc;
+  const centers = [[lat, lng], ...subCenters(lat, lng, r)];
+  const parts = await Promise.all(centers.map(([la, ln]) => searchArea(q, la, ln, Math.ceil(r / 2), depth + 1)));
+  return [acc, ...parts].flat();
+}
 // With includeAll, run an "all restaurants" category search and layer keyword searches on top.
 async function fetchPlaces(keywords, r, includeAll) {
   const { lat, lng } = state.center;
   const jobs = [];
-  if (SEARCH_PROXY || KAKAO_REST_KEY) {
-    const base = { x: lng, y: lat, radius: r, sort: "distance", size: 15 };
-    if (includeAll) jobs.push(restPaged("category.json", { ...base, category_group_code: "FD6" }));
-    keywords.forEach(q => jobs.push(restPaged("keyword.json", { ...base, query: q, category_group_code: "FD6" })));
-  } else {
-    const opts = { location: new kakao.maps.LatLng(lat, lng), radius: r, size: 15, sort: kakao.maps.services.SortBy.DISTANCE };
-    if (includeAll) jobs.push(sdkPaged("전체 음식점", opts, cb => state.ps.categorySearch("FD6", cb, opts)));
-    keywords.forEach(q => jobs.push(sdkPaged(q, opts, cb => state.ps.keywordSearch(q, cb, { ...opts, category_group_code: "FD6" }))));
-  }
-  return (await Promise.all(jobs)).flat();
+  if (includeAll) jobs.push(searchArea(null, lat, lng, r));
+  keywords.forEach(q => jobs.push(searchArea(q, lat, lng, r)));
+  const raw = (await Promise.all(jobs)).flat();
+  // Sub-circles stick out past the original radius, and accuracy sort makes the API's
+  // per-query distance meaningless — recompute from the real center and clip to r.
+  return raw.map(p => ({ ...p, distance: Math.round(haversine(lat, lng, +p.y, +p.x)) }))
+    .filter(p => p.distance <= r);
 }
 
 $("search").onclick = async () => {
