@@ -541,11 +541,8 @@
         <div class="row">
           <select id="mode" class="mode" aria-label="이동 수단">
             <option value="walk">걸어서</option>
-            <option value="run">뛰어서</option>
-            <option value="drive">차 타고</option>
-            <option value="fly">날아서</option>
           </select>
-          <label class="minutes"><input type="number" id="minutes" value="5" min="1" step="1" aria-label="분" /><span>분</span></label>
+          <label class="minutes"><input type="number" id="minutes" value="5" min="1" max="20" step="1" aria-label="분" /><span>분</span></label>
         </div>
       </div>
 
@@ -657,7 +654,7 @@ function loadPersisted() {
     if (Array.isArray(pr.genres)) state.genres = new Set(pr.genres);
     if (Array.isArray(pr.excludes)) state.excludes = new Set(pr.excludes);
     if (pr.mode && MODES[pr.mode]) $("mode").value = pr.mode;
-    if (pr.minutes >= 1) $("minutes").value = pr.minutes;
+    if (pr.minutes >= 1) $("minutes").value = clampMinutes(pr.minutes);
   }
   const td = loadJSON(TODAY_KEY, null);
   if (td && td.date === todayStr()) {
@@ -772,12 +769,11 @@ $("genreInput").addEventListener("blur", () => commitInput());
 /* ---------- Radius: travel mode × minutes ---------- */
 const MODES = {
   walk:  { label: "걸어서",  mpm: 67 },     // ~4 km/h
-  run:   { label: "뛰어서",  mpm: 150 },    // ~9 km/h
-  drive: { label: "차 타고", mpm: 500 },    // ~30 km/h city driving
-  fly:   { label: "날아서",  mpm: 14000 },  // ~840 km/h — effectively the max radius
 };
+const MAX_MINUTES = 20;   // 걸어서 20분 = 반경 ~1.34km 상한
+function clampMinutes(v) { return Math.max(1, Math.min(MAX_MINUTES, parseFloat(v) || 1)); }
 function currentMode() { return MODES[$("mode").value] || MODES.walk; }
-function rawRadius() { return currentMode().mpm * Math.max(1, parseFloat($("minutes").value) || 1); }
+function rawRadius() { return currentMode().mpm * clampMinutes($("minutes").value); }
 function radiusMeters() {
   const m = Math.round(rawRadius() / 10) * 10;
   return Math.max(10, Math.min(MAX_RADIUS_M, m));
@@ -787,14 +783,18 @@ function travelLabel(dist) {
   return `${mo.label} 약 ${Math.max(1, Math.round(dist / mo.mpm))}분`;
 }
 function updateRadiusHint() {
-  const capped = rawRadius() > MAX_RADIUS_M;
+  const capped = (parseFloat($("minutes").value) || 1) >= MAX_MINUTES;
   $("radiusHint").textContent = `반경 ${fmtDist(radiusMeters())}${capped ? " (최대)" : ""}`;
   drawCircle();
   if (state.picked) fillTicketMeta(state.picked);
 }
-$("minutes").addEventListener("input", () => { updateRadiusHint(); markDirty(); savePrefs(); });
+$("minutes").addEventListener("input", () => {
+  const el = $("minutes");
+  if (parseFloat(el.value) > MAX_MINUTES) el.value = MAX_MINUTES;
+  updateRadiusHint(); markDirty(); savePrefs();
+});
 $("mode").addEventListener("change", () => { markDirty(); savePrefs(); });
-$("minutes").addEventListener("blur", () => { const v = parseFloat($("minutes").value); if (!(v >= 1)) { $("minutes").value = 1; updateRadiusHint(); } });
+$("minutes").addEventListener("blur", () => { const v = clampMinutes($("minutes").value); if (String(v) !== $("minutes").value) { $("minutes").value = v; updateRadiusHint(); } });
 $("mode").addEventListener("change", updateRadiusHint);
 
 /* ---------- Status display ---------- */
@@ -1014,10 +1014,9 @@ $("search").onclick = async () => {
 };
 
 function widenAndSearch() {
-  const cur = Math.max(1, parseFloat($("minutes").value) || 1);
-  let m = cur * 2;
-  while (currentMode().mpm * m > MAX_RADIUS_M && m > cur) m = Math.max(cur + 1, Math.floor(m * 0.8));
-  $("minutes").value = m; updateRadiusHint(); savePrefs();
+  const cur = clampMinutes($("minutes").value);
+  $("minutes").value = Math.min(MAX_MINUTES, cur * 2);
+  updateRadiusHint(); savePrefs();
   $("search").click();
 }
 
@@ -1050,7 +1049,7 @@ function renderList() {
   const list = $("list"); list.innerHTML = "";
   $("empty").hidden = state.places.length > 0;
   if (!state.places.length && state.all) {
-    const canWiden = radiusMeters() < MAX_RADIUS_M;
+    const canWiden = clampMinutes($("minutes").value) < MAX_MINUTES;
     $("empty").innerHTML = state.all.length
       ? `${ICON("search-x")}<b>다 걸러졌어요</b>제외 조건에 모두 걸렸어요.<br>
          <button class="btn secondary" id="emptyClear" type="button">제외 목록 비우기</button>
@@ -1127,7 +1126,8 @@ function focusPlace(p, scrollList = true) {
   const mk = state.markers.find(x => x.id === p.id);
   const pos = new kakao.maps.LatLng(p.y, p.x);
   state.map.panTo(pos);
-  state.info.setContent(`<div style="padding:8px 12px;font:500 13px Pretendard,sans-serif;white-space:nowrap"><b>${esc(p.place_name)}</b><br><span style="color:#5B635C">${esc(shortCat(p.category_name))} · ${fmtDist(p.distance)}</span></div>`);
+  // The InfoWindow bubble is always white, so pin the text dark regardless of the page theme
+  state.info.setContent(`<div style="padding:8px 12px;font:500 13px Pretendard,sans-serif;white-space:nowrap;color:#1B1F1A"><b>${esc(p.place_name)}</b><br><span style="color:#5B635C">${esc(shortCat(p.category_name))} · ${fmtDist(p.distance)}</span></div>`);
   state.info.open(state.map, mk ? mk.m : new kakao.maps.Marker({ position: pos }));
   if (scrollList) document.querySelector(`.card[data-id="${p.id}"]`)?.scrollIntoView({ block: "nearest", behavior: "smooth" });
 }
