@@ -1308,6 +1308,7 @@ $("search").onclick = async () => {
     const raw = await fetchPlaces(keywords, r, includeAll);
     const seen = new Set();
     state.all = raw.filter(p => !seen.has(p.id) && seen.add(p.id))
+      .filter(p => !isDeliveryOnly(p))
       .map(p => ({ ...p, distance: Number(p.distance) || 0 }))
       .sort((a, b) => a.distance - b.distance);
     state.picked = null; setTicketState("idle"); setReel(["—"]);
@@ -1330,6 +1331,11 @@ function widenAndSearch() {
 }
 
 /* ---------- Filter & render ---------- */
+// The app is about walkable lunch spots — drop delivery-only businesses.
+// Kakao's API has no delivery flag, so this catches the ones that say so in
+// their name or category (ghost kitchens with ordinary names still slip through).
+const DELIVERY_RE = /배달\s*전문|딜리버리|공유\s*주방|고스트\s*키친|쉐어\s*키친/i;
+function isDeliveryOnly(p) { return DELIVERY_RE.test(`${p.place_name} ${p.category_name}`); }
 function isExcluded(p) {
   if (state.skips.has(p.place_name)) return true;
   const hay = (p.place_name + " " + p.category_name).toLowerCase();
