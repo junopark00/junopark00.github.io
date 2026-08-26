@@ -1022,7 +1022,7 @@ $("search").onclick = async () => {
     applyFilter(true);
     searchDirty = false;
     if (!state.all.length) setStatus("결과가 없어요. 반경을 넓히거나 기준 위치를 확인하세요.", true);
-    if (isMobile() && state.all.length) setSheetTab("results");
+    if (isMobile() && state.all.length) setSheetTab("results", { snap: "full" });   // pull the sheet up so the list is easy to browse
   } catch (e) {
     console.error(e);
     setStatus("검색 실패: " + e.message, true);
@@ -1163,11 +1163,13 @@ function setSheetHeight(px, animate = true) {
   sheet.el.style.setProperty("--sheet-h", v + "px");
 }
 function snapSheet(name) { sheet.snap = name; setSheetHeight(sheetSnaps()[name]); }
-function setSheetTab(name, { expand = true } = {}) {
+function setSheetTab(name, { expand = true, snap = null } = {}) {
   sheet.tab = name;
   document.querySelectorAll(".stabs [role=tab]").forEach(b => b.setAttribute("aria-selected", b.dataset.panel === name));
   ["settings", "results"].forEach(n => $(n === "settings" ? "panelSettings" : "panelResults").classList.toggle("active", n === name));
-  if (isMobile() && expand && sheet.snap === "peek") snapSheet("half");
+  if (!isMobile()) return;
+  if (snap) snapSheet(snap);
+  else if (expand && sheet.snap === "peek") snapSheet("half");
 }
 document.querySelectorAll(".stabs [role=tab]").forEach(b => b.onclick = () => {
   if (sheet.tab === b.dataset.panel && sheet.snap === "peek") { snapSheet("half"); return; }
