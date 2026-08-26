@@ -104,10 +104,15 @@ export default {
         await env.RATINGS.put(key, uid, { expirationTtl: 600 });
         return uid;
       };
+      // Entries are { s: stars, t: review text, at: epoch ms }; plain numbers are
+      // tolerated for ratings stored before reviews existed.
+      const entriesOf = m => Object.entries(m).map(([u, v]) =>
+        typeof v === "number" ? { u, s: v, t: "", at: 0 } : { u, s: v.s, t: v.t || "", at: v.at || 0 });
       const summarize = (m, uid) => {
-        const vals = Object.values(m);
-        return { avg: vals.length ? Math.round(vals.reduce((a, b) => a + b, 0) / vals.length * 10) / 10 : 0,
-                 count: vals.length, mine: m[uid] || 0 };
+        const es = entriesOf(m);
+        const mine = es.find(e => e.u === uid);
+        return { avg: es.length ? Math.round(es.reduce((a, e) => a + e.s, 0) / es.length * 10) / 10 : 0,
+                 count: es.length, mine: mine ? mine.s : 0 };
       };
 
       if (url.pathname === "/ratings" && req.method === "GET") {
@@ -124,15 +129,29 @@ export default {
       }
 
       const rm = url.pathname.match(/^\/ratings\/(\d{1,20})$/);
+      if (rm && req.method === "GET") {   // detail: averages plus recent reviews
+        if (!env.RATINGS) return json({ error: "ratings storage not set" }, 501);
+        const uid = await verifyUser();
+        if (!uid) return json({ error: "unauthorized" }, 401);
+        const m = JSON.parse(await env.RATINGS.get("r:" + rm[1]) || "{}");
+        const es = entriesOf(m);
+        const mine = es.find(e => e.u === uid);
+        const reviews = es.filter(e => e.t).sort((a, b) => b.at - a.at).slice(0, 10)
+          .map(e => ({ s: e.s, t: e.t, at: e.at, mine: e.u === uid }));
+        return json({ ...summarize(m, uid), myText: mine ? mine.t : "", reviews });
+      }
       if (rm && req.method === "POST") {
         if (!env.RATINGS) return json({ error: "ratings storage not set" }, 501);
         const uid = await verifyUser();
         if (!uid) return json({ error: "unauthorized" }, 401);
-        const stars = (await req.json().catch(() => ({}))).stars;
+        const b = await req.json().catch(() => ({}));
+        const stars = b.stars;
+        const text = String(b.text || "").trim().slice(0, 500);
         if (!Number.isInteger(stars) || stars < 1 || stars > 5) return json({ error: "stars must be 1-5" }, 400);
+        if (text.length < 10) return json({ error: "review must be at least 10 characters" }, 400);
         const key = "r:" + rm[1];
         const m = JSON.parse(await env.RATINGS.get(key) || "{}");
-        m[uid] = stars;
+        m[uid] = { s: stars, t: text, at: Date.now() };
         await env.RATINGS.put(key, JSON.stringify(m));
         return json(summarize(m, uid));
       }

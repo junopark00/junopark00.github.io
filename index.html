@@ -169,6 +169,43 @@
   .gbtn-wrap { margin-top: 10px; display: flex; justify-content: center; min-height: 40px; max-width: 100%; overflow: hidden; }
   .modal-card .linkbtn { margin-top: 14px; }
 
+  /* ---------- Place detail dialog ---------- */
+  .detail-card { max-width: 400px; text-align: left; position: relative; max-height: 84dvh; overflow-y: auto; padding: 24px 22px 20px; }
+  .dclose { position: absolute; top: 12px; right: 12px; border: 0; background: none; padding: 6px; cursor: pointer; color: var(--ink-2); display: inline-flex; }
+  .dclose:hover { color: var(--ink); }
+  .detail-card h2 { font-size: 20px; font-weight: 800; letter-spacing: -.01em; margin: 0 24px 6px 0; }
+  .dmeta { font-size: 13px; color: var(--ink-2); line-height: 1.6; margin-bottom: 14px; }
+  .dactions { display: flex; gap: 8px; margin-bottom: 16px; }
+  .dactions .btn { flex: 1; padding: 9px 8px; font-size: 13px; }
+  .dsec { border-top: 1px dashed var(--line); padding-top: 14px; margin-top: 14px; }
+  .dsec .dsec-t { font-size: 12px; font-weight: 700; color: var(--ink-2); letter-spacing: .04em; margin-bottom: 8px; }
+  .davg { display: flex; align-items: center; gap: 6px; font-size: 14px; font-weight: 700; }
+  .davg .star { display: inline-flex; color: var(--line); }
+  .davg .star .ic { width: 17px; height: 17px; fill: currentColor; stroke: currentColor; }
+  .davg .star.on { color: var(--yellow); }
+  .davg small { font-weight: 500; color: var(--ink-2); }
+  .review { padding: 9px 0; border-bottom: 1px solid var(--line); font-size: 13px; }
+  .review:last-child { border-bottom: 0; }
+  .review .rhead { display: flex; align-items: center; gap: 6px; margin-bottom: 3px; }
+  .review .rstars { color: var(--yellow); letter-spacing: 1px; font-size: 12px; }
+  .review .rdate { font-size: 11px; color: var(--ink-2); }
+  .review .rmine { font-size: 10.5px; font-weight: 700; color: var(--green-text); }
+  .review .rtext { color: var(--ink); overflow-wrap: anywhere; }
+  .rate-pick { display: flex; gap: 2px; margin-bottom: 8px; }
+  .rate-pick .star { border: 0; background: none; padding: 3px; cursor: pointer; color: var(--line); display: inline-flex; }
+  .rate-pick .star .ic { width: 22px; height: 22px; fill: currentColor; stroke: currentColor; }
+  .rate-pick .star.on { color: var(--yellow); }
+  .drate textarea {
+    width: 100%; min-height: 64px; padding: 9px 11px; font: inherit; font-size: 13px; resize: vertical;
+    border: 1px solid var(--line); border-radius: 3px; background: var(--paper-2); color: var(--ink);
+  }
+  .drate textarea:focus { border-color: var(--ink); background: var(--paper); outline: none; }
+  .drate-foot { display: flex; align-items: center; justify-content: space-between; margin-top: 8px; }
+  .drate-foot small { font-size: 11.5px; color: var(--ink-2); }
+  .drate-foot .btn { padding: 8px 16px; font-size: 13px; }
+  .drate-notice { margin-top: 8px; font-size: 11px; color: var(--ink-2); opacity: .8; }
+  .dlogin { text-align: center; padding: 6px 0; }
+
   /* ---------- Star ratings on cards ---------- */
   .card .stars { grid-column: 1 / -1; display: flex; align-items: center; gap: 1px; margin-top: 2px; }
   .card .stars .star { border: 0; background: none; padding: 2px; cursor: pointer; color: var(--line); display: inline-flex; }
@@ -729,6 +766,20 @@
   </div>
 </div>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<!-- Place detail: info, average rating, recent reviews, my review form -->
+<div class="modal" id="detailModal" hidden>
+  <div class="modal-card detail-card">
+    <button type="button" class="dclose" id="detailClose" aria-label="닫기"><svg class="ic" aria-hidden="true"><use href="#i-x"/></svg></button>
+    <h2 id="dName"></h2>
+    <div class="dmeta" id="dMeta"></div>
+    <div class="dactions">
+      <a class="btn secondary" id="dLink" href="#" target="_blank" rel="noopener"><svg class="ic" aria-hidden="true"><use href="#i-store"/></svg>가게 정보</a>
+      <a class="btn" id="dRoute" href="#" target="_blank" rel="noopener"><svg class="ic" aria-hidden="true"><use href="#i-navigation"/></svg>길찾기</a>
+    </div>
+    <div class="dbody" id="dBody"></div>
+  </div>
+</div>
 
 <!-- Kakao-login nudge: ratings are visible and writable only for logged-in users -->
 <div class="modal" id="loginModal" hidden>
@@ -1309,8 +1360,7 @@ function renderList() {
       <div class="c">${esc(shortCat(p.category_name))}</div>
       <div class="a">${esc(p.road_address_name || p.address_name || "")}${p.phone ? " · " + esc(p.phone) : ""}</div>
       ${isLoggedIn()
-        ? `<div class="stars" title="별점 남기기">${[1, 2, 3, 4, 5].map(i =>
-            `<button type="button" class="star${p.rating && Math.round(p.rating.avg) >= i ? " on" : ""}" data-star="${i}" aria-label="${i}점 주기">${ICON("star")}</button>`).join("")}
+        ? `<div class="stars">${starSpans(p.rating && p.rating.count ? Math.round(p.rating.avg) : 0)}
            <span class="rc">${p.rating && p.rating.count
              ? `${p.rating.avg.toFixed(1)} (${p.rating.count})${p.rating.mine ? ` · 내 별점 ${p.rating.mine}점` : ""}`
              : "첫 별점을 남겨보세요"}</span></div>`
@@ -1320,10 +1370,9 @@ function renderList() {
         <a href="${routeUrl(p)}" target="_blank" rel="noopener">${ICON("navigation")}길찾기</a>
         <button type="button" data-skip="${esc(p.place_name)}">${ICON("ban")}오늘은 빼기</button>
       </div>`;
-    c.onclick = e => { if (e.target.closest("a,button")) return; focusPlace(p); };
-    c.onkeydown = e => { if (e.key === "Enter" && e.target === c) focusPlace(p); };
+    c.onclick = e => { if (e.target.closest("a,button")) return; openDetail(p); };
+    c.onkeydown = e => { if (e.key === "Enter" && e.target === c) openDetail(p); };
     c.querySelector("[data-skip]").onclick = () => skipPlace(p.place_name);
-    c.querySelectorAll("[data-star]").forEach(b => b.onclick = () => ratePlace(p, +b.dataset.star));
     const lock = c.querySelector("[data-login]"); if (lock) lock.onclick = showLoginModal;
     list.appendChild(c);
   });
@@ -1564,7 +1613,8 @@ async function fetchWalkTime(w) {
 }
 function fillTicketMeta(w) {
   const walk = w.walkPending ? "도보 시간 확인 중…" : walkTimeLabel(w);
-  $("tMeta").innerHTML = `<span>${esc(shortCat(w.category_name))}</span><span>${fmtDist(w.distance)}</span><span>${esc(walk)}</span>`;
+  const rate = w.rating && w.rating.count ? `<span>★ ${w.rating.avg.toFixed(1)} (${w.rating.count})</span>` : "";
+  $("tMeta").innerHTML = `<span>${esc(shortCat(w.category_name))}</span><span>${fmtDist(w.distance)}</span><span>${esc(walk)}</span>${rate}`;
   // Show the straight-line disclaimer only when the estimate is what's displayed
   $("ticket").classList.toggle("real-walk", !!realWalkSec(w) || !!w.walkPending);
 }
@@ -1767,7 +1817,11 @@ function showLoginModal() { $("loginModal").hidden = false; renderGoogleBtn(); }
 $("kakaoLoginBtn").onclick = kakaoLogin;
 $("skipLoginBtn").onclick = () => { $("loginModal").hidden = true; saveJSON(NUDGE_KEY, todayStr()); };
 $("loginModal").addEventListener("click", e => { if (e.target === $("loginModal")) $("skipLoginBtn").click(); });
-document.addEventListener("keydown", e => { if (e.key === "Escape" && !$("loginModal").hidden) $("skipLoginBtn").click(); });
+document.addEventListener("keydown", e => {
+  if (e.key !== "Escape") return;
+  if (!$("detailModal").hidden) { closeDetail(); return; }
+  if (!$("loginModal").hidden) $("skipLoginBtn").click();
+});
 function maybeNudgeLogin() {
   if (!isLoggedIn() && loadJSON(NUDGE_KEY, "") !== todayStr()) showLoginModal();
 }
@@ -1785,14 +1839,90 @@ async function fetchRatings() {
     applyFilter();
   } catch {}
 }
-async function ratePlace(p, stars) {
+/* ---------- Place detail dialog: info, reviews, my rating ---------- */
+const MIN_REVIEW = 10;
+const starSpans = n => [1, 2, 3, 4, 5].map(i => `<span class="star${n >= i ? " on" : ""}">${ICON("star")}</span>`).join("");
+let detailPlace = null, pickStars = 0;
+function openDetail(p) {
+  detailPlace = p; pickStars = 0;
+  focusPlace(p, false);
+  $("dName").textContent = p.place_name;
+  $("dMeta").innerHTML = `${esc(shortCat(p.category_name))} · ${fmtDist(p.distance)} · ${esc(walkTimeLabel(p))}<br>` +
+    `${esc(p.road_address_name || p.address_name || "")}${p.phone ? `<br>☎ ${esc(p.phone)}` : ""}`;
+  $("dLink").href = p.place_url; $("dRoute").href = routeUrl(p);
+  renderDetailBody(null);
+  $("detailModal").hidden = false;
+  if (isLoggedIn()) loadDetail(p);
+}
+function closeDetail() { $("detailModal").hidden = true; detailPlace = null; }
+$("detailClose").onclick = closeDetail;
+$("detailModal").addEventListener("click", e => { if (e.target === $("detailModal")) closeDetail(); });
+function renderDetailBody(d) {
+  const el = $("dBody");
+  if (!isLoggedIn()) {
+    el.innerHTML = `<div class="dsec dlogin"><button type="button" class="stars-locked" id="dLoginBtn">★ 로그인하고 별점·리뷰 보기</button></div>`;
+    document.getElementById("dLoginBtn").onclick = () => { closeDetail(); showLoginModal(); };
+    return;
+  }
+  if (!d) { el.innerHTML = `<div class="dsec"><small style="color:var(--ink-2)">별점 불러오는 중…</small></div>`; return; }
+  const avgHtml = d.count
+    ? `<div class="davg">${starSpans(Math.round(d.avg))} ${d.avg.toFixed(1)} <small>(${d.count}명)</small></div>`
+    : `<div class="davg"><small>아직 별점이 없어요 — 첫 별점을 남겨보세요</small></div>`;
+  const reviews = d.reviews && d.reviews.length
+    ? d.reviews.map(rv => `<div class="review"><div class="rhead"><span class="rstars">${"★".repeat(rv.s)}</span>` +
+        `<span class="rdate">${rv.at ? new Date(rv.at).toLocaleDateString("ko-KR", { month: "numeric", day: "numeric" }) : ""}</span>` +
+        `${rv.mine ? `<span class="rmine">내 리뷰</span>` : ""}</div><div class="rtext">${esc(rv.t)}</div></div>`).join("")
+    : `<small style="color:var(--ink-2);font-size:12.5px">아직 리뷰가 없어요</small>`;
+  pickStars = pickStars || d.mine || 0;
+  el.innerHTML = `
+    <div class="dsec">${avgHtml}</div>
+    <div class="dsec drate"><div class="dsec-t">내 별점 ${d.mine ? "고치기" : "남기기"}</div>
+      <div class="rate-pick" id="ratePick">${[1, 2, 3, 4, 5].map(i =>
+        `<button type="button" class="star${pickStars >= i ? " on" : ""}" data-star="${i}" aria-label="${i}점">${ICON("star")}</button>`).join("")}</div>
+      <textarea id="reviewText" maxlength="500" placeholder="리뷰를 ${MIN_REVIEW}자 이상 적어주세요"></textarea>
+      <div class="drate-foot"><small id="reviewHint"></small><button class="btn" id="reviewSubmit" type="button">등록</button></div>
+      <div class="drate-notice">욕설·비방 등 악의적인 리뷰는 예고 없이 삭제될 수 있어요.</div>
+    </div>
+    <div class="dsec"><div class="dsec-t">최근 리뷰</div>${reviews}</div>`;
+  const ta = document.getElementById("reviewText");
+  ta.value = d.myText || "";
+  const upd = () => {
+    const len = ta.value.trim().length;
+    document.getElementById("reviewHint").textContent =
+      `${len}/${MIN_REVIEW}자 이상${pickStars ? ` · ★ ${pickStars}점` : " · 별점을 골라주세요"}`;
+    document.getElementById("reviewSubmit").disabled = !pickStars || len < MIN_REVIEW;
+  };
+  document.querySelectorAll("#ratePick [data-star]").forEach(b => b.onclick = () => {
+    pickStars = +b.dataset.star;
+    document.querySelectorAll("#ratePick .star").forEach((s, i) => s.classList.toggle("on", i < pickStars));
+    upd();
+  });
+  ta.addEventListener("input", upd);
+  document.getElementById("reviewSubmit").onclick = submitReview;
+  upd();
+}
+async function loadDetail(p) {
+  try {
+    const res = await authFetch(`${WORKER_BASE}/ratings/${p.id}`);
+    if (!res.ok) return;
+    const d = await res.json();
+    p.rating = { avg: d.avg, count: d.count, mine: d.mine };
+    if (detailPlace === p) renderDetailBody(d);
+    if (state.picked && state.picked.id === p.id) fillTicketMeta(state.picked);
+  } catch {}
+}
+async function submitReview() {
+  const p = detailPlace; if (!p) return;
+  const text = document.getElementById("reviewText").value.trim();
+  if (!pickStars || text.length < MIN_REVIEW) return;
+  document.getElementById("reviewSubmit").disabled = true;
   try {
     const res = await authFetch(`${WORKER_BASE}/ratings/${p.id}`, { method: "POST",
-      headers: { "Content-Type": "application/json" }, body: JSON.stringify({ stars }) });
-    if (res.ok) { p.rating = await res.json(); toast(`★ ${stars}점을 남겼어요`); applyFilter(); }
-    else if (res.status === 401) showLoginModal();
-    else toast("별점 등록에 실패했어요");
-  } catch { toast("별점 등록에 실패했어요"); }
+      headers: { "Content-Type": "application/json" }, body: JSON.stringify({ stars: pickStars, text }) });
+    if (res.ok) { p.rating = await res.json(); toast(`★ ${pickStars}점 리뷰를 남겼어요`); loadDetail(p); applyFilter(); }
+    else if (res.status === 401) { closeDetail(); showLoginModal(); }
+    else toast("등록에 실패했어요");
+  } catch { toast("등록에 실패했어요"); }
 }
 function sortPlaces() {
   const s = $("sortSel").value;
