@@ -182,16 +182,7 @@
   .detail .head .c { font-size: 12.5px; color: var(--ink-2); }
   .detail .head .a { font-size: 13px; color: var(--ink); overflow-wrap: anywhere; }
   .detail .head .a a { color: var(--green-text); text-decoration: none; font-weight: 700; }
-  .detail .tabs { display: flex; border-bottom: 1px solid var(--line); background: var(--paper-2); }
-  .detail .tabs button {
-    flex: 1; padding: 9px; border: 0; background: none; font-size: 13px; font-weight: 500; color: var(--ink-2);
-    border-bottom: 2px solid transparent; margin-bottom: -1px;
-  }
-  .detail .tabs button[aria-selected="true"] { color: var(--ink); font-weight: 700; border-bottom-color: var(--red); background: var(--paper); }
-  .detail .hint { font-size: 11.5px; color: var(--ink-2); padding: 6px 14px 0; margin: 0; }
-  .detail .hint[hidden] { display: none; }
   .detail .body { flex: 1; min-height: 0; position: relative; background: var(--map-bg); }
-  .detail .body iframe { border: 0; background: #fff; }
   .detail .body > * { position: absolute; inset: 0; width: 100%; height: 100%; }
   .detail .body [hidden] { display: none; }
   .detail .body .view-tag {
@@ -530,7 +521,7 @@
     .detail { width: auto; }
     .detail .body { min-height: 240px; flex: 1 0 240px; }
     .detail .foot { position: sticky; bottom: 0; background: var(--paper); }
-    .detail.no-place .head, .detail.no-place .tabs, .detail.no-place .body, .detail.no-place .hint, .detail.no-place .foot { display: none; }
+    .detail.no-place .head, .detail.no-place .body, .detail.no-place .foot { display: none; }
     .detail .d-empty { margin: 16px 14px; }
     .detail .d-empty[hidden] { display: none; }
   }
@@ -626,7 +617,7 @@
         </div>
         <div class="actions t-done">
           <button class="btn secondary" id="tDetail" type="button">상세 보기</button>
-          <a class="btn ghost" id="tLink" href="#" target="_blank" rel="noopener">네이버맵 열기</a>
+          <a class="btn ghost" id="tLink" href="#" target="_blank" rel="noopener">카카오맵 열기</a>
           <button class="btn ghost" id="tReroll" type="button">다시 뽑기</button>
           <button class="btn ghost" id="tSkip" type="button">여긴 빼고 뽑기</button>
           <button class="btn ghost" id="tShare" type="button">공유</button>
@@ -656,19 +647,13 @@
         <b>아직 고른 가게가 없어요</b>
         뽑기를 하거나 목록·지도에서 가게를 누르면 여기에 상세가 보여요.
       </div>
-      <div class="tabs" role="tablist">
-        <button type="button" role="tab" id="tabNaver" aria-selected="true" data-tab="naver">네이버 플레이스</button>
-        <button type="button" role="tab" id="tabRv" aria-selected="false" data-tab="rv">로드뷰</button>
-      </div>
       <div class="body">
-        <iframe id="dNaver" title="네이버 플레이스" referrerpolicy="no-referrer-when-downgrade" hidden></iframe>
         <div id="dRoadview"></div>
         <div id="dStatic" hidden></div>
         <div class="view-tag" id="dViewTag" hidden></div>
       </div>
-      <p class="hint" id="dHint">지도의 핀이나 「목록보기」를 누르면 영업시간·리뷰·메뉴가 보여요.</p>
       <div class="foot">
-        <a class="btn" id="dOpen" href="#" target="_blank" rel="noopener">네이버맵에서 열기</a>
+        <a class="btn" id="dOpen" href="#" target="_blank" rel="noopener">카카오맵에서 열기</a>
         <a class="btn secondary" id="dRoute" href="#" target="_blank" rel="noopener">길찾기</a>
         <button class="btn ghost" id="dPick" type="button">오늘은 여기!</button>
       </div>
@@ -690,7 +675,6 @@
    ============================================================ */
 const KAKAO_JS_KEY   = "915c35e47a9ec22fe51b99e9be2e3532";
 const SEARCH_PROXY   = "https://jummechu-api.td-junopark.workers.dev/search";
-const NAVER_RESOLVE  = "https://jummechu-api.td-junopark.workers.dev/naver?q=";   // worker route that returns the first Naver Place id; "" → always show the list
 const KAKAO_REST_KEY = "";
 
 const GENRES = ["한식","중식","일식","양식","분식","고기","국밥","면","돈까스","치킨","피자","버거","샐러드","아시안","카페"];
@@ -1042,7 +1026,6 @@ $("search").onclick = async () => {
     state.picked = null; setTicketState("idle"); setReel(["—"]); closeDetail();
     applyFilter(true);
     searchDirty = false;
-    prefetchNaver();
     if (!state.all.length) setStatus("결과가 없어요. 반경을 넓히거나 기준 위치를 확인하세요.", true);
     if (isMobile() && state.all.length) setSheetTab("results");
   } catch (e) {
@@ -1107,7 +1090,7 @@ function renderList() {
       <div class="c">${esc(shortCat(p.category_name))}</div>
       <div class="a">${esc(p.road_address_name || p.address_name || "")}${p.phone ? " · " + esc(p.phone) : ""}</div>
       <div class="links">
-        <a href="${naverMapUrl(p)}" target="_blank" rel="noopener">네이버맵</a>
+        <a href="${p.place_url}" target="_blank" rel="noopener">카카오맵</a>
         <button type="button" data-skip="${esc(p.place_name)}">오늘은 빼기</button>
       </div>`;
     c.onclick = e => { if (e.target.closest("a,button")) return; focusPlace(p); };
@@ -1241,108 +1224,9 @@ mobileMQ.addEventListener("change", () => {
 });
 
 /* ---------- Right detail panel ---------- */
-// Kakao blocks embedding its place pages, but Naver Place (m.place.naver.com) renders inside an iframe —
-// including opening hours, reviews and menus. There is no official Kakao→Naver id mapping, so the panel
-// embeds a Naver list search for "name + neighbourhood"; one tap on the pin opens the full page in-frame.
-// The Roadview tab stays as the fallback in case Naver ever blocks framing.
-const NAVER_EMBED = true;                     // set false to make Roadview the default tab
-const detail = { place: null, tab: NAVER_EMBED ? "naver" : "rv", rv: null, rvClient: null, mini: null, req: 0, naverLoaded: null, naverIds: {} };
-function neighbourhood(p) {
-  // "서울 마포구 상암동 1602" → "상암동"; falls back to the district ("마포구")
-  const toks = (p.address_name || p.road_address_name || "").split(/\s+/);
-  return toks.find(t => /(동|읍|면|리|가)$/.test(t) && !/^[0-9]/.test(t)) || toks.find(t => /(구|군|시)$/.test(t)) || "";
-}
-function naverQuery(p) { return `${p.place_name} ${neighbourhood(p)}`.trim(); }
-function naverMapUrl(p) {
-  const id = detail.naverIds?.[p.id]?.id;
-  return id ? `https://map.naver.com/p/entry/place/${id}` : `https://map.naver.com/p/search/${encodeURIComponent(naverQuery(p))}`;
-}
-function naverListUrl(p) { return `https://m.place.naver.com/place/list?query=${encodeURIComponent(naverQuery(p))}`; }
-// Resolve Kakao place → Naver Place id through the worker.
-// Ids are prefetched in the background right after a search (nearest first, one request at a time, spaced out
-// so Naver doesn't flag the worker as a bot), so opening a card is usually instant. Transient failures
-// (captcha / network) are not remembered and get retried; genuine misses are.
-const naverJobs = { queue: [], inflight: {}, running: false };
-const sleep = ms => new Promise(r => setTimeout(r, ms));
-function resolveNaver(p) {
-  if (detail.naverIds[p.id]) return Promise.resolve(detail.naverIds[p.id]);
-  if (naverJobs.inflight[p.id]) return naverJobs.inflight[p.id];
-  if (!NAVER_RESOLVE) return Promise.resolve({ id: null, reason: "disabled" });
-  const job = (async () => {
-    let info = { id: null, reason: "network" };
-    try {
-      const ctrl = new AbortController(); const t = setTimeout(() => ctrl.abort(), 12000);
-      const r = await fetch(NAVER_RESOLVE + encodeURIComponent(naverQuery(p)) + `&n=${encodeURIComponent(p.place_name)}&x=${p.x}&y=${p.y}`, { signal: ctrl.signal });
-      clearTimeout(t);
-      if (r.ok) info = await r.json();
-    } catch (e) { console.warn("[점메추] naver lookup", e); }
-    console.info("[점메추] naver", p.place_name, "→", info.id ? `id ${info.id} (${info.name || ""})` : `list (${info.reason})`);
-    if (info.id || info.reason === "no-result" || info.reason === "too-far") detail.naverIds[p.id] = info;
-    delete naverJobs.inflight[p.id];
-    // upgrade any open-map links that point at this place
-    if (info.id) {
-      if (state.picked?.id === p.id) $("tLink").href = naverMapUrl(p);
-      if (detail.place?.id === p.id) $("dOpen").href = naverMapUrl(p);
-      document.querySelectorAll(`.card[data-id="${p.id}"] .links a`).forEach(a => a.href = naverMapUrl(p));
-    }
-    return info;
-  })();
-  naverJobs.inflight[p.id] = job;
-  return job;
-}
-async function runNaverQueue() {
-  if (naverJobs.running) return;
-  naverJobs.running = true;
-  while (naverJobs.queue.length) {
-    const p = naverJobs.queue.shift();
-    if (detail.naverIds[p.id] || naverJobs.inflight[p.id]) continue;
-    const info = await resolveNaver(p);
-    if (info.reason === "captcha") { console.warn("[점메추] naver prefetch paused (captcha)"); break; }   // stop hammering; on-demand lookups still work
-    await sleep(1500 + Math.random() * 700);   // spaced out like a person browsing
-  }
-  naverJobs.running = false;
-}
-function prefetchNaver() {
-  if (!NAVER_RESOLVE || !state.all) return;
-  naverJobs.queue = state.all.slice(0, 20).filter(p => !detail.naverIds[p.id]);
-  runNaverQueue();
-}
-async function loadNaver(p, req) {
-  const frame = $("dNaver"), hint = $("dHint");
-  const showList = (why) => {
-    frame.src = naverListUrl(p);
-    const note = { "no-result": "네이버에서 같은 이름을 못 찾았어요. ", "too-far": "이름이 같은 다른 지점만 있어요. ", captcha: "네이버가 잠시 자동 조회를 막았어요. ", network: "응답이 늦어요. " }[why] || "";
-    hint.textContent = note + "지도의 핀이나 「목록보기」를 누르면 상세가 보여요."; hint.hidden = false;
-  };
-  const showPlace = ({ id, type }) => { frame.src = `https://m.place.naver.com/${type || "restaurant"}/${id}/home`; hint.hidden = true; };
-  const cached = detail.naverIds[p.id];
-  if (cached) { cached.id ? showPlace(cached) : showList(cached.reason); return; }
-  if (!NAVER_RESOLVE) { showList(); return; }
-  hint.textContent = "네이버에서 가게를 찾는 중…"; hint.hidden = false; frame.src = "about:blank";
-  // jump the queue: this place first
-  naverJobs.queue = naverJobs.queue.filter(x => x.id !== p.id);
-  const info = await resolveNaver(p);
-  if (info.hours && (info.hours.status || info.hours.description) && detail.place?.id === p.id) {
-    $("dCat").textContent = `${detailCat(p)} · ${[info.hours.status, info.hours.description].filter(Boolean).join(" ")}`;
-  }
-  if (req !== detail.req || detail.place?.id !== p.id || detail.tab !== "naver") return;   // user moved on
-  info.id ? showPlace(info) : showList(info.reason);
-}
-function setDetailTab(tab, force = false) {
-  if (!force && detail.tab === tab) return;
-  detail.tab = tab;
-  const isNaver = tab === "naver";
-  $("tabNaver").setAttribute("aria-selected", isNaver);
-  $("tabRv").setAttribute("aria-selected", !isNaver);
-  $("dNaver").hidden = !isNaver; $("dHint").hidden = !isNaver;
-  $("dRoadview").hidden = isNaver; $("dStatic").hidden = true; $("dViewTag").hidden = true;
-  const p = detail.place; if (!p) return;
-  if (isNaver) {
-    if (detail.naverLoaded !== p.id) { detail.naverLoaded = p.id; loadNaver(p, detail.req); }
-  } else {
-    showRoadview(p);
-  }
-}
+// Kakao blocks embedding its place and route pages in iframes (X-Frame-Options), so the panel shows a
+// Roadview of the storefront (interactive map as fallback) plus links that open Kakao Map in a new tab / app.
+const detail = { place: null, rv: null, rvClient: null, mini: null, req: 0 };
 function detailCat(p) { return `${fmtDist(p.distance)} · ${travelLabel(p.distance)}`; }
 // Kakao map link: /link/from/<name>,<lat>,<lng>/to/<name>,<lat>,<lng> pre-fills both ends
 function routeUrl(p) {
@@ -1355,11 +1239,9 @@ function openDetail(p) {
   detail.place = p;
   $("detail").setAttribute("aria-label", `${p.place_name} 상세 정보`);
   $("dOpen").title = $("dRoute").title = p.place_name;
-  const known = detail.naverIds[p.id];
-  $("dCat").textContent = known?.hours && (known.hours.status || known.hours.description)
-    ? `${detailCat(p)} · ${[known.hours.status, known.hours.description].filter(Boolean).join(" ")}` : detailCat(p);
+  $("dCat").textContent = detailCat(p);
   $("dAddr").innerHTML = esc(p.road_address_name || p.address_name || "") + (p.phone ? ` · <a href="tel:${esc(p.phone)}">${esc(p.phone)}</a>` : "");
-  $("dOpen").href = naverMapUrl(p);
+  $("dOpen").href = p.place_url;
   $("dRoute").href = routeUrl(p);
   $("dPick").hidden = !!(state.picked && state.picked.id === p.id);
   const wasHidden = $("detail").hidden;
@@ -1367,13 +1249,12 @@ function openDetail(p) {
   $("detail").classList.remove("no-place"); $("dEmpty").hidden = true;
   if (isMobile()) { setSheetTab("detail"); snapSheet("full"); }
   // wait one frame so the panel has its final size before the Roadview measures it
-  requestAnimationFrame(() => { if (wasHidden && state.map) state.map.relayout(); setDetailTab(detail.tab, true); });
+  requestAnimationFrame(() => { if (wasHidden && state.map) state.map.relayout(); showRoadview(p); });
 }
 function closeDetail() {
   $("detail").hidden = true; $("splitV").hidden = true;
   $("detail").classList.remove("active", "no-place");
   detail.place = null; detail.req++;
-  $("dNaver").src = "about:blank"; detail.naverLoaded = null;
   if (isMobile() && sheet.tab === "detail") { setSheetTab("results"); if (sheet.snap === "full") snapSheet("half"); }
 }
 function bearing(from, to) {   // degrees, 0 = north, clockwise
@@ -1425,7 +1306,6 @@ function relayoutDetailView() {
 let rvRelayoutT = null;
 new ResizeObserver(() => { clearTimeout(rvRelayoutT); rvRelayoutT = setTimeout(relayoutDetailView, 150); }).observe($("detail"));
 $("dClose").onclick = closeDetail;
-document.querySelectorAll(".detail .tabs [role=tab]").forEach(b => b.onclick = () => setDetailTab(b.dataset.tab));
 $("dPick").onclick = () => { if (detail.place) showPicked(detail.place); };
 document.addEventListener("keydown", e => { if (e.key === "Escape" && !$("detail").hidden) closeDetail(); });
 
@@ -1501,7 +1381,7 @@ function fillTicketMeta(w) {
 function fillTicket(winner) {
   state.picked = winner;
   fillTicketMeta(winner);
-  $("tLink").href = naverMapUrl(winner);
+  $("tLink").href = winner.place_url;
   // recent + today's history
   state.recent = [winner.id, ...state.recent.filter(id => id !== winner.id)].slice(0, 3);
   state.history = [{ id: winner.id, place_name: winner.place_name, category_name: winner.category_name, distance: winner.distance, place_url: winner.place_url, x: winner.x, y: winner.y, road_address_name: winner.road_address_name, address_name: winner.address_name, phone: winner.phone },
@@ -1597,7 +1477,7 @@ function renderHistory() {
 function toast(msg) { const t = $("toast"); t.textContent = msg; t.classList.add("show"); clearTimeout(toast.t); toast.t = setTimeout(() => t.classList.remove("show"), 1800); }
 async function sharePicked() {
   const w = state.picked; if (!w) return;
-  const link = naverMapUrl(w);
+  const link = w.place_url;
   const text = `오늘 점심은 ${w.place_name} 🎉\n${shortCat(w.category_name)} · ${fmtDist(w.distance)} · ${travelLabel(w.distance)}\n${link}`;
   try {
     if (navigator.share) { await navigator.share({ title: `오늘 점심: ${w.place_name}`, text, url: link }); return; }
